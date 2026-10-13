@@ -1,0 +1,50 @@
+name: Evals
+
+# Real-model evaluation. Costs API credits, so it runs on demand and on PRs that
+# touch prompts, agents, tools or the knowledge base.
+on:
+  workflow_dispatch:
+    inputs:
+      judge:
+        description: Add LLM-as-judge quality scores
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - backend/src/support/agents/**
+      - backend/src/support/rag/**
+      - backend/knowledge_base/**
+      - backend/evals/**
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.pull_request.head.repo.fork }}
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_USER: support, POSTGRES_PASSWORD: support, POSTGRES_DB: support_eval }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U support" --health-interval 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SUPPORT_DATABASE_URL: postgresql+asyncpg://support:support@localhost:5432/support_eval
+      SUPPORT_LOG_JSON: "false"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: backend/pyproject.toml }
+      - run: pip install -e .
+      - run: alembic upgrade head
+      - name: Run evals
+        run: python -m support.evals.runner ${{ inputs.judge && '--judge' || '' }}
+      - name: Publish report
+        if: always()
+        run: cat evals/reports/*.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: eval-report, path: backend/evals/reports/ }

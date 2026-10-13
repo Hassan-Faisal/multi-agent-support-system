@@ -1,0 +1,58 @@
+# Full stack: Postgres + pgvector, one-shot setup job, API, and the web app.
+#   cp .env.example .env   # add API keys
+#   docker compose up --build
+#   open http://localhost:8080
+
+x-backend-env: &backend-env
+  SUPPORT_ENV: ${SUPPORT_ENV:-dev}
+  SUPPORT_DATABASE_URL: postgresql+asyncpg://support:support@db:5432/support
+  SUPPORT_LLM_MODEL: ${SUPPORT_LLM_MODEL:-anthropic:claude-sonnet-5-5}
+  SUPPORT_TRIAGE_MODEL: ${SUPPORT_TRIAGE_MODEL:-anthropic:claude-haiku-5-5}
+  SUPPORT_EMBEDDING_PROVIDER: ${SUPPORT_EMBEDDING_PROVIDER:-openai}
+  SUPPORT_JWT_SECRET: ${SUPPORT_JWT_SECRET:?set SUPPORT_JWT_SECRET in .env}
+  SUPPORT_ENABLE_DEMO_ACCOUNTS: ${SUPPORT_ENABLE_DEMO_ACCOUNTS:-true}
+  SUPPORT_CORS_ORIGINS: '["http://localhost:8080"]'
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD: support
+      POSTGRES_DB: support
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U support -d support"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Migrations, demo data and knowledge-base indexing. All three are idempotent.
+  setup:
+    build: ./backend
+    environment: *backend-env
+    command: sh -c "alembic upgrade head && python -m support.db.seed && python -m support.rag.ingest"
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build: ./backend
+    environment: *backend-env
+    ports: ["8000:8000"]
+    depends_on:
+      setup: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

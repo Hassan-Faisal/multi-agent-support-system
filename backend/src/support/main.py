@@ -1,6 +1,6 @@
 """FastAPI application factory.
 
-uvicorn support.main:app --factory   (or `uvicorn support.main:create_app --factory`)
+uvicorn support.main:create_app --factory --port 8000
 """
 
 from __future__ import annotations
