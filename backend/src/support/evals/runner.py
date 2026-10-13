@@ -58,7 +58,14 @@ async def run_case(c: Container, case: Case) -> RunRecord:
         for i, text in enumerate(case.turns):
             state = await c.graph.ainvoke({"messages": [HumanMessage(text, id=str(uuid.uuid4()))]}, config)
             if i == 0:
-                route = next((e["agent"] for e in state.get("events", []) if e["type"] == "route"), None)
+                route = next(
+                    (
+                        "off_topic" if e["type"] == "guardrail" else e["agent"]
+                        for e in state.get("events", [])
+                        if e["type"] == "route" or e.get("kind") == "off_topic"
+                    ),
+                    None,
+                )
     except Exception as e:  # recorded as a failed case, not a crashed run
         return RunRecord(route, set(), None, [], "", {}, set(), 0, error=f"{type(e).__name__}: {e}")
 

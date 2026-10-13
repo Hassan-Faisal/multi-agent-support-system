@@ -109,6 +109,7 @@ async def build_container(
             settings.max_tool_steps_per_agent,
             settings.max_context_messages,
             settings.injection_block_threshold,
+            settings.triage_every_turn,
         ),
     )
     return Container(

@@ -1,15 +1,19 @@
 """LangGraph orchestration.
 
-    START → guard ─┬─ blocked ───────────────────────────────▶ END (refusal)
-                   └─ entry ─┬─ no active agent → triage ─┬─▶ END (small talk)
-                             │                            ▼
-                             └─ active agent ──────▶ <specialist> ⇄ <specialist>_tools
-                                                         │  transfer_to_* → other specialist
-                                                         └─ reply → END
+    START → guard ─┬─ blocked ──────────────────────────▶ END (refusal)
+                   └─ entry → triage ─┬─ off-topic ───────▶ END (fixed redirect)
+                                      ├─ greeting/thanks ─▶ END (one-line reply)
+                                      ▼
+                               <specialist> ⇄ <specialist>_tools
+                                      │  transfer_to_* → other specialist
+                                      └─ reply → END
 
 - guard: PII redaction + prompt-injection screen on the new customer message.
-- triage: cheap model, structured output, only on the first message of a topic;
-  afterwards the conversation is "sticky" to the active specialist.
+- triage: small model, structured output, on every message. It keeps the conversation
+  with the active specialist when the topic continues (no visible re-route), switches
+  specialist on a new topic, and answers anything outside Nimbus support with fixed
+  text so the conversation can't drift into chit-chat. Set triage_every_turn=False to
+  skip it for follow-ups (cheaper, but off-topic follow-ups then reach the specialist).
 - specialists: LLM + tools loop. Handoffs switch agent within the same turn.
 - guardrails: handoff cap and per-agent tool-step cap both fall back to escalation.
 
@@ -55,9 +59,14 @@ class GraphLimits:
         max_tool_steps: int = 8,
         max_context_messages: int = 40,
         injection_threshold: float = 0.8,
+        triage_every_turn: bool = True,
     ) -> None:
         self.max_handoffs, self.max_tool_steps = max_handoffs, max_tool_steps
         self.max_context_messages, self.injection_threshold = max_context_messages, injection_threshold
+        # Screen every message for scope and topic changes, not just the first one. Costs one
+        # small-model call per turn; without it, follow-ups go straight to the active specialist
+        # and off-topic chat is never caught.
+        self.triage_every_turn = triage_every_turn
 
 
 def text_of(message: AnyMessage) -> str:
@@ -156,17 +165,33 @@ def build_graph(
 
     def entry(state: SupportState) -> Command[Any]:
         target = state.get("active_agent")
-        return Command(goto=target if target in AGENTS else "triage", update={"handoffs": 0, "steps": 0})
+        sticky = target in AGENTS and not limits.triage_every_turn
+        return Command(goto=target if sticky else "triage", update={"handoffs": 0, "steps": 0})
 
     async def triage(state: SupportState, config: RunnableConfig) -> Command[Any]:
+        active = state.get("active_agent")
         msgs = context_window(state["messages"], 10)
-        raw = await router.ainvoke([SystemMessage(prompts.TRIAGE), *msgs], config)
+        system = SystemMessage(prompts.TRIAGE.format(active_agent=active or "nobody yet (new conversation)"))
+        raw = await router.ainvoke([system, *msgs], config)
         decision = RouteDecision.model_validate(raw)
         ROUTES.labels(decision.agent).inc()
-        ev = emit({"type": "route", "agent": decision.agent, "reason": decision.reason})
+
+        if decision.agent == "off_topic":
+            # Fixed text, not model output: the redirect itself can't drift into chit-chat.
+            # The active specialist is kept, so the next on-topic message resumes with them.
+            GUARDRAILS.labels("off_topic").inc()
+            ev = emit({"type": "guardrail", "kind": "off_topic", "detail": decision.reason})
+            reply = AIMessage(prompts.OFF_TOPIC_REPLY, name="triage")
+            return Command(goto=END, update={"messages": [reply], "events": ev})
         if decision.agent == "none":
-            reply = decision.reply or "Hi! How can I help you today?"
-            return Command(goto=END, update={"messages": [AIMessage(reply, name="triage")], "events": ev})
+            ev = emit({"type": "route", "agent": "none", "reason": decision.reason})
+            text = (decision.reply or "").strip()
+            if not text or len(text) > 240:  # a greeting reply must stay one short sentence
+                text = "Hi! How can I help with your Nimbus account, an order, billing or the app?"
+            return Command(goto=END, update={"messages": [AIMessage(text, name="triage")], "events": ev})
+        if decision.agent == active:
+            return Command(goto=active)  # same topic continues: no visible re-route
+        ev = emit({"type": "route", "agent": decision.agent, "reason": decision.reason})
         return Command(goto=decision.agent, update={"active_agent": decision.agent, "events": ev})
 
     def make_agent(name: str) -> Any:

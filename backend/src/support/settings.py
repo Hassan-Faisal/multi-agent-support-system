@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     max_handoffs_per_turn: int = 3
     max_tool_steps_per_agent: int = 8
     injection_block_threshold: float = 0.8
+    # Route-check every customer message (catches off-topic chat and topic changes) rather
+    # than only the first message of a conversation. One small-model call per turn.
+    triage_every_turn: bool = True
     turn_timeout_s: float = 120.0
 
     # ------------------------------------------------------------ business policy

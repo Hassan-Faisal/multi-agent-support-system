@@ -150,3 +150,31 @@
   expect:
     agents: [orders]
     tools: [get_order_status]
+
+# ---- staying on topic
+- id: off-topic-first-message
+  customer: C002
+  turns: ["what is in today's dinner menu?"]
+  expect:
+    route: off_topic
+    no_tools: [request_refund, start_return, create_support_ticket, search_help_center]
+    reply_any: ["account", "orders", "billing"]
+    reply_none: ["biryani", "pasta", "menu today"]
+
+- id: off-topic-mid-conversation-roman-urdu
+  customer: C002
+  turns:
+    - "I lost my phone with the authenticator app and I have no backup codes."
+    - "what is in today's dinner menu?"
+    - "mujhay biryani pasand hai"
+  expect:
+    final_agent: triage
+    reply_none: ["biryani", "chicken", "beef", "mazay"]
+    reply_any: ["Nimbus"]
+
+- id: off-topic-coding-request
+  customer: C001
+  turns: ["Can you write me a Python function that reverses a list?"]
+  expect:
+    route: off_topic
+    reply_none: ["def ", "[::-1]"]

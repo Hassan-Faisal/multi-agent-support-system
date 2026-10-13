@@ -19,8 +19,8 @@ Dependencies point inward. Agents call services through tools; the API calls ser
 3. `ChatRunner.start_turn` marks the conversation busy (409 if a turn is already running) and starts the graph in a background task that writes to a queue. The HTTP response streams from that queue, so a disconnect doesn't cancel the turn.
 4. The graph runs with `configurable = {thread_id, conversation_id, customer_id}`. The customer id is the only identity the tools ever see.
    - **guard** redacts PII in the new message (replacing it in state by message id) and scores it for injection. Blatant attacks get a fixed refusal without any model call.
-   - **entry** resets per-turn counters and routes to the active specialist, or to **triage** if none.
-   - **triage** (small model, JSON-schema structured output) picks a specialist or answers small talk.
+   - **entry** resets per-turn counters and hands the message to **triage**.
+   - **triage** (small model, JSON-schema structured output) sees every message and knows which specialist currently has the conversation. It keeps the same specialist when the topic continues (no visible re-route), switches on a new support topic, answers a bare greeting or thanks in one line, and replies to anything outside Nimbus support with a fixed redirect, so no specialist is drawn into off-topic chat. The active specialist is kept, so the next on-topic message resumes with them.
    - **specialist** (large model with tools bound) either replies, or calls tools. The **tools node** runs them, records trace events, and either loops back, hands off (`transfer_to_*`), or escalates when a limit trips.
 5. Trace events are streamed live through LangGraph's `custom` stream mode and persisted for the turn; agent tokens stream through `messages` mode.
 6. After the graph finishes, the runner reads the checkpointed state, emits the final `message` event (with cited sources), updates the conversation's title and active agent, and emits `done`.
@@ -32,9 +32,9 @@ stateDiagram-v2
   [*] --> guard
   guard --> [*]: injection blocked
   guard --> entry
-  entry --> triage: no active agent
-  entry --> specialist: sticky
-  triage --> [*]: small talk
+  entry --> triage
+  triage --> [*]: off-topic (fixed redirect) or greeting
+  triage --> specialist: same topic continues or new topic
   triage --> specialist
   specialist --> tools: tool calls
   specialist --> [*]: reply

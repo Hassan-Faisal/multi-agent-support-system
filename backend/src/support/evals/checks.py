@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class Expect(BaseModel):
-    route: Literal["billing", "technical", "orders", "escalation", "none"] | None = None
+    route: Literal["billing", "technical", "orders", "escalation", "none", "off_topic"] | None = None
     agents: list[str] = []
     final_agent: str | None = None
     tools: list[str] = []

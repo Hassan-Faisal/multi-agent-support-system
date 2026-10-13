@@ -44,6 +44,8 @@ export function pathOf(events: TraceEvent[], fallback: AgentName | null): Line[]
     } else if (e.type === "handoff") {
       if (!path.length) path.push(e.source);
       path.push(e.target);
+    } else if (e.type === "guardrail" && e.kind === "off_topic") {
+      path.push("desk"); // the front desk answered; the specialist keeps the conversation
     } else if (e.type === "guardrail" && (e.kind === "handoff_limit" || e.kind === "tool_step_limit")) {
       if (path.at(-1) !== "escalation") path.push("escalation");
     }
@@ -86,6 +88,7 @@ export function describe(e: TraceEvent): string | null {
           injection_suspected: "Flagged unusual instructions in the message and kept to normal rules.",
           handoff_limit: "Too many transfers in one reply, so it went to the human team.",
           tool_step_limit: "The specialist needed too many steps, so it went to the human team.",
+          off_topic: "This wasn't about your Nimbus account, so the front desk steered back to support.",
         }[e.kind] ?? null
       );
     case "sources":

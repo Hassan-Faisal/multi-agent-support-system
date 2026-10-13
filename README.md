@@ -12,7 +12,7 @@ A customer writes in; a front-desk router hands them to the right AI specialist 
 
 | | |
 |---|---|
-| **Agent orchestration** | Explicit LangGraph state machine: guard → triage → specialist ⇄ tools, with in-turn handoffs, sticky routing, a handoff cap and a tool-step cap that both fall back to humans. [`agents/graph.py`](backend/src/support/agents/graph.py) |
+| **Agent orchestration** | Explicit LangGraph state machine: guard → triage → specialist ⇄ tools, with in-turn handoffs, scope control on every message (off-topic chat gets a fixed redirect), a handoff cap and a tool-step cap that both fall back to humans. [`agents/graph.py`](backend/src/support/agents/graph.py) |
 | **Policy lives in code** | Refund limits, refund/return windows and one-refund-per-invoice are pure functions enforced by transactional services with row locks. A manipulated model still can't refund another customer's invoice or exceed a limit. [`domain/policies.py`](backend/src/support/domain/policies.py) |
 | **Hybrid RAG** | Markdown-aware chunking with heading paths, pgvector HNSW + Postgres full-text, fused with Reciprocal Rank Fusion, per-document diversity, idempotent fingerprinted ingestion, cited sources in replies. [`rag/`](backend/src/support/rag) |
 | **Human in the loop** | Refunds over $50 become pending with an auto-opened ticket; staff approve or decline in the console; everything is audited. |
@@ -35,8 +35,8 @@ flowchart LR
   end
   subgraph Graph[LangGraph]
     G[guard<br/>PII + injection] --> E{entry}
-    E -->|new topic| T[triage]
-    E -->|sticky| S
+    E --> T[triage<br/>every message]
+    T -->|off-topic| X[fixed redirect]
     T --> S[specialist<br/>billing / technical / orders / escalation]
     S <--> Tools[tools]
     Tools -->|transfer_to_*| S

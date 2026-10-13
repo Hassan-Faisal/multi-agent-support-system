@@ -214,7 +214,10 @@ async def test_conversations_survive_restart_with_postgres_checkpointer(
     await first.aclose()
 
     second = await build_container(
-        settings, llm=scripted("Anything else?"), triage_llm=scripted(), embedder=EMB
+        settings,
+        llm=scripted("Anything else?"),
+        triage_llm=scripted({"agent": "orders", "reason": "same order"}),
+        embedder=EMB,
     )
     app2 = create_app(settings, second)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app2), base_url="http://t") as client:
@@ -223,7 +226,7 @@ async def test_conversations_survive_restart_with_postgres_checkpointer(
         r = await client.post(
             f"/api/v1/conversations/{conv}/messages", headers=auth, json={"content": "thanks"}
         )
-        assert r.json()["message"]["agent"] == "orders"  # sticky agent restored; triage not called
+        assert r.json()["message"]["agent"] == "orders"  # active agent restored from the checkpoint
     await second.aclose()
 
 

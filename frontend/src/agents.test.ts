@@ -17,6 +17,10 @@ describe("pathOf", () => {
     expect(pathOf([], "technical")).toEqual(["technical"]);
   });
 
+  it("shows the front desk when it redirects an off-topic message", () => {
+    expect(pathOf([{ type: "guardrail", kind: "off_topic" }], "escalation")).toEqual(["desk"]);
+  });
+
   it("adds the human team when a guardrail escalates", () => {
     const events: TraceEvent[] = [
       { type: "route", agent: "billing", reason: "x" },

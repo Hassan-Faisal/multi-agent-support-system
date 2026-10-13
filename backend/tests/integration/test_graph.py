@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from langchain_core.messages import HumanMessage
 
+from support.agents import prompts
 from support.agents.graph import GraphLimits, build_graph
 from support.agents.tools import AgentDeps
 from support.db.session import SessionFactory, unit_of_work
@@ -132,22 +133,77 @@ async def test_rag_answer_carries_cited_sources(deps: AgentDeps) -> None:
     assert "Ayesha Khan" in llm.calls[-1][0].content
 
 
-async def test_sticky_routing_skips_triage_on_follow_up(deps: AgentDeps) -> None:
+async def test_follow_up_on_same_topic_continues_without_rerouting(deps: AgentDeps) -> None:
     graph, _, triage = make(
         deps,
         [
             tool_call("get_order_status", {"order_id": "ORD-1002"}),
             "It's with FedEx.",
-            "You're welcome!",
+            "Tracking FX998877 shows it out for delivery.",
         ],
+        [{"agent": "orders", "reason": "tracking"}, {"agent": "orders", "reason": "same order"}],
+    )
+    c = cfg()
+    await say(graph, "where is ORD-1002?", c)
+    out = await say(graph, "what's the tracking number?", c)
+    assert out["messages"][-1].name == "orders"
+    assert len(triage.calls) == 2  # every message is screened
+    assert kinds(out) == []  # same agent: no visible re-route, trace reset for the new turn
+    # the router is told who currently has the conversation
+    assert "currently with: orders" in triage.calls[-1][0].content
+
+
+async def test_off_topic_message_gets_fixed_redirect_and_keeps_the_agent(deps: AgentDeps) -> None:
+    """The reported bug: chit-chat with the agent that already had the conversation."""
+    graph, llm, _ = make(
+        deps,
+        [
+            tool_call(
+                "create_support_ticket",
+                {"category": "technical", "priority": "high", "summary": "Lost 2FA device, no backup codes"},
+            ),
+            "I've opened a ticket; our team will email you within 4 hours.",
+            "Your ticket is still open; the team will be in touch soon.",
+        ],
+        [
+            {"agent": "escalation", "reason": "lost 2FA"},
+            {"agent": "off_topic", "reason": "asks about a dinner menu"},
+            {"agent": "escalation", "reason": "follows up on ticket"},
+        ],
+    )
+    c = cfg()
+    await say(graph, "I lost my 2FA phone and have no backup codes", c)
+    calls_before = len(llm.calls)
+
+    out = await say(graph, "what is in today's dinner menu?", c)
+    reply = out["messages"][-1]
+    assert reply.content == prompts.OFF_TOPIC_REPLY and reply.name == "triage"
+    assert len(llm.calls) == calls_before  # no specialist saw the off-topic message
+    assert out["active_agent"] == "escalation"  # the support conversation is not lost
+    assert [(e["type"], e.get("kind")) for e in out["events"]] == [("guardrail", "off_topic")]
+
+    out = await say(graph, "any update on my ticket?", c)  # back on topic: same specialist resumes
+    assert out["messages"][-1].name == "escalation"
+
+
+async def test_greeting_reply_is_kept_short(deps: AgentDeps) -> None:
+    rambling = "Hello! " + "I love talking about food and the weather. " * 10
+    graph, _, _ = make(deps, [], [{"agent": "none", "reason": "greeting", "reply": rambling}])
+    out = await say(graph, "hi", cfg())
+    assert out["messages"][-1].content.startswith("Hi! How can I help")
+
+
+async def test_sticky_mode_still_available_when_configured(deps: AgentDeps) -> None:
+    graph, _, triage = make(
+        deps,
+        [tool_call("get_order_status", {"order_id": "ORD-1002"}), "It's with FedEx.", "You're welcome!"],
         [{"agent": "orders", "reason": "tracking"}],
+        GraphLimits(triage_every_turn=False),
     )
     c = cfg()
     await say(graph, "where is ORD-1002?", c)
     out = await say(graph, "thanks!", c)
-    assert out["messages"][-1].content == "You're welcome!"
-    assert triage.responses == [] and len(triage.calls) == 1
-    assert kinds(out) == []  # trace was reset for the new turn
+    assert out["messages"][-1].content == "You're welcome!" and len(triage.calls) == 1
 
 
 async def test_handoff_between_specialists(deps: AgentDeps) -> None:

@@ -32,8 +32,13 @@ class SupportState(TypedDict, total=False):
 class RouteDecision(BaseModel):
     """Which specialist should handle the customer's latest message."""
 
-    agent: Literal["billing", "technical", "orders", "escalation", "none"] = Field(
-        description="Specialist to route to, or 'none' for greetings/small talk only."
+    agent: Literal["billing", "technical", "orders", "escalation", "none", "off_topic"] = Field(
+        description=(
+            "Specialist to route to; 'none' for a bare greeting or thanks; 'off_topic' for anything "
+            "unrelated to Nimbus support."
+        )
     )
     reason: str = Field(description="One short sentence explaining the choice.")
-    reply: str | None = Field(default=None, description="Short friendly reply, only when agent is 'none'.")
+    reply: str | None = Field(
+        default=None, description="One short sentence, only when agent is 'none'; otherwise null."
+    )
