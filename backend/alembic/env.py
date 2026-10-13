@@ -18,6 +18,15 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    """Only manage tables our models define. LangGraph's checkpointer creates and migrates
+    its own tables (checkpoints, checkpoint_blobs, ...); without this filter, autogenerate
+    would emit DROP TABLE for them and wipe every saved conversation."""
+    if type_ == "table":
+        return name in target_metadata.tables
+    return True
+
+
 def _url() -> str:
     # Allows `alembic -x url=...` (used by tests), else settings.
     url = context.get_x_argument(as_dictionary=True).get("url")
@@ -25,13 +34,21 @@ def _url() -> str:
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=_url(), target_metadata=target_metadata, literal_binds=True, compare_type=True)
+    context.configure(
+        url=_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_type=True,
+        include_name=include_name,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def _run(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, compare_type=True, include_name=include_name
+    )
     with context.begin_transaction():
         context.run_migrations()
 
