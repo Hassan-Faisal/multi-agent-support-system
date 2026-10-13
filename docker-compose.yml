@@ -1,19 +1,18 @@
 # Full stack: Postgres + pgvector, one-shot setup job, API, and the web app.
-#   cp .env.example .env   # add API keys
+#   cp .env.example .env   # add OPENAI_API_KEY and SUPPORT_JWT_SECRET
 #   docker compose up --build
 #   open http://localhost:8080
 
 x-backend-env: &backend-env
   SUPPORT_ENV: ${SUPPORT_ENV:-dev}
   SUPPORT_DATABASE_URL: postgresql+asyncpg://support:support@db:5432/support
-  SUPPORT_LLM_MODEL: ${SUPPORT_LLM_MODEL:-anthropic:claude-sonnet-5-5}
-  SUPPORT_TRIAGE_MODEL: ${SUPPORT_TRIAGE_MODEL:-anthropic:claude-haiku-5-5}
+  SUPPORT_LLM_MODEL: ${SUPPORT_LLM_MODEL:-openai:gpt-6.1-sol}
+  SUPPORT_TRIAGE_MODEL: ${SUPPORT_TRIAGE_MODEL:-openai:gpt-6-luna}
   SUPPORT_EMBEDDING_PROVIDER: ${SUPPORT_EMBEDDING_PROVIDER:-openai}
   SUPPORT_JWT_SECRET: ${SUPPORT_JWT_SECRET:?set SUPPORT_JWT_SECRET in .env}
   SUPPORT_ENABLE_DEMO_ACCOUNTS: ${SUPPORT_ENABLE_DEMO_ACCOUNTS:-true}
   SUPPORT_CORS_ORIGINS: '["http://localhost:8080"]'
-  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
   LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
   LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
 

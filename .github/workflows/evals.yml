@@ -32,7 +32,6 @@ jobs:
     env:
       SUPPORT_DATABASE_URL: postgresql+asyncpg://support:support@localhost:5432/support_eval
       SUPPORT_LOG_JSON: "false"
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4

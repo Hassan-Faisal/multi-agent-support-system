@@ -27,10 +27,14 @@ class Settings(BaseSettings):
     db_pool_size: int = 10
 
     # ------------------------------------------------------------ LLMs
-    # Any provider:model string accepted by langchain's init_chat_model.
-    llm_model: str = "anthropic:claude-sonnet-5-5"
-    triage_model: str = "anthropic:claude-haiku-5-5"
-    llm_temperature: float = 0.0
+    # Any provider:model string accepted by langchain's init_chat_model. OpenAI by default;
+    # "anthropic:..." also works after `pip install -e ".[anthropic]"`.
+    llm_model: str = "openai:gpt-6.1-sol"  # specialists: tool use and customer-facing replies
+    triage_model: str = "openai:gpt-6-luna"  # routing only: small, fast, cheap
+    # Unset by default: some current models reject a custom temperature.
+    llm_temperature: float | None = None
+    # OpenAI tool calling on current models goes through the Responses API.
+    openai_use_responses_api: bool = True
     llm_timeout_s: float = 60.0
     llm_max_retries: int = 2
     # Message window sent to the model (older turns stay in the checkpoint).
@@ -76,7 +80,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    # Also export .env into the process environment: provider SDKs (Anthropic, OpenAI) and
+    # Also export .env into the process environment: provider SDKs (OpenAI) and
     # LangSmith read their keys from os.environ, not from this Settings object. Real
     # environment variables still win over the file.
     load_dotenv(".env", override=False)

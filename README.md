@@ -4,7 +4,7 @@ A customer writes in; a front-desk router hands them to the right AI specialist 
 
 ![Chat: billing refunds a duplicate charge, then hands off to orders](docs/screenshots/chat-handoff.png)
 
-**Stack:** Python 3.12, LangGraph, FastAPI, PostgreSQL 16+ with pgvector, SQLAlchemy 2 (async), Alembic, React 19 + TypeScript + Vite, Docker Compose, GitHub Actions.
+**Stack:** Python 3.12, LangGraph, OpenAI (Responses API + embeddings), FastAPI, PostgreSQL 16+ with pgvector, SQLAlchemy 2 (async), Alembic, React 19 + TypeScript + Vite, Docker Compose, GitHub Actions.
 
 ## What's worth looking at
 
@@ -53,7 +53,7 @@ flowchart LR
   Tools --> Services --> D
   Tools --> R[hybrid retriever] --> V
   Graph --> C
-  S --> LLM[(Claude)]
+  S --> LLM[(OpenAI<br/>gpt-6.1-sol, gpt-6-luna)]
   R --> EMB[(OpenAI embeddings)]
 ```
 
@@ -64,7 +64,7 @@ More detail, including the request lifecycle and data model: [`docs/architecture
 **Docker (everything):**
 
 ```bash
-cp .env.example .env        # add ANTHROPIC_API_KEY, OPENAI_API_KEY, SUPPORT_JWT_SECRET
+cp .env.example .env        # add OPENAI_API_KEY and SUPPORT_JWT_SECRET
 docker compose up --build   # Postgres, migrations + seed + KB indexing, API, web
 open http://localhost:8080
 ```
@@ -78,7 +78,7 @@ Sign in with a demo account from the login page (password `demo1234` for all):
 | Sofia (Enterprise) | "refund my last invoice" → $499 is over the limit, so it's pending with a ticket |
 | Jordan (staff) | Approve Sofia's refund in the console and watch it update her account |
 
-No OpenAI key? Set `SUPPORT_EMBEDDING_PROVIDER=hashing` for an offline, lexical-only index (fine for demos, weaker on paraphrases).
+Everything runs on one OpenAI key: `gpt-6.1-sol` for the specialists, `gpt-6-luna` for routing, `text-embedding-3-small` for the help-center index. Any model works via `SUPPORT_LLM_MODEL` / `SUPPORT_TRIAGE_MODEL`, including other providers' (`pip install -e ".[anthropic]"` for `anthropic:` models). To skip embedding costs in a demo, set `SUPPORT_EMBEDDING_PROVIDER=hashing` for a lexical-only index.
 
 **Local development:**
 

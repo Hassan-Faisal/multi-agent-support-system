@@ -65,7 +65,16 @@ def text_of(message: AnyMessage) -> str:
     c = message.content
     if isinstance(c, str):
         return c
-    return "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in c)
+    parts: list[str] = []
+    for b in c:
+        if isinstance(b, str):
+            parts.append(b)
+        elif b.get("type") in (None, "text", "output_text"):
+            parts.append(str(b.get("text", "")))
+        elif b.get("type") == "refusal":  # model declined; show its explanation
+            parts.append(str(b.get("refusal", "")))
+        # reasoning, tool-call and other non-text blocks are never shown to the customer
+    return "".join(parts)
 
 
 def context_window(messages: Sequence[AnyMessage], limit: int) -> list[AnyMessage]:
@@ -88,7 +97,7 @@ def build_graph(
     limits = limits or GraphLimits()
 
     router: Runnable[Any, Any]
-    try:  # native JSON-schema output; newer Claude models don't support forced tool calls
+    try:  # native JSON-schema structured output (strict schemas on OpenAI)
         router = triage_llm.with_structured_output(RouteDecision, method="json_schema")
     except (ValueError, NotImplementedError, TypeError):
         router = triage_llm.with_structured_output(RouteDecision)

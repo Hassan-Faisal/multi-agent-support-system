@@ -24,4 +24,5 @@ The design assumption: **the language model can be manipulated.** Security there
 - **Process-local limits:** the rate limiter and busy-conversation guard live in memory, so multiple replicas each enforce their own. Move them to Redis or Postgres before scaling out.
 - **Token storage:** JWTs sit in `sessionStorage`. Production should use HttpOnly, SameSite cookies with CSRF protection.
 - **Demo accounts** are served on the login page when `SUPPORT_ENABLE_DEMO_ACCOUNTS=true` and never when `SUPPORT_ENV=prod`.
+- **Provider data retention:** the OpenAI Responses API stores responses by default (for multi-turn state). Card numbers and SSNs are already redacted before any request, but for stricter requirements pass `store=False` in `agents/llm.py` or use a zero-data-retention agreement.
 - **Secrets** come from the environment. Use a secrets manager in production and rotate `SUPPORT_JWT_SECRET` (rotation invalidates sessions).
