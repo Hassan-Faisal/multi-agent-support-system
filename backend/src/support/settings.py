@@ -10,6 +10,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -75,4 +76,8 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # Also export .env into the process environment: provider SDKs (Anthropic, OpenAI) and
+    # LangSmith read their keys from os.environ, not from this Settings object. Real
+    # environment variables still win over the file.
+    load_dotenv(".env", override=False)
     return Settings()
