@@ -1,5 +1,7 @@
 # Nimbus Help: a multi-agent customer support system
 
+[![CI](https://github.com/Hassan-Faisal/multi-agent-support-system/actions/workflows/ci.yml/badge.svg)](https://github.com/Hassan-Faisal/multi-agent-support-system/actions/workflows/ci.yml)
+
 A customer writes in; a front-desk router hands them to the right AI specialist (billing, technical support, or orders), specialists pass conversations between themselves, and anything outside policy goes to human staff. Answers to "how does X work" questions are grounded in the help center through hybrid RAG with citations. Every action the agents take is enforced by business rules in code, written to an audit log, and visible to the customer as a plain-language trace.
 
 ![Chat: billing refunds a duplicate charge, then hands off to orders](docs/screenshots/chat-handoff.png)
