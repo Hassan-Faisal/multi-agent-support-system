@@ -5,10 +5,11 @@ TEST_DATABASE_URL (CI provides one as a service container). The schema is built 
 running the actual Alembic migrations, so migrations are tested too. Each test starts
 from freshly seeded data.
 """
+
 from __future__ import annotations
 
+import asyncio
 import os
-import subprocess
 import sys
 from collections.abc import AsyncIterator
 from decimal import Decimal
@@ -65,10 +66,20 @@ async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
     async with eng.begin() as conn:
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
-    subprocess.run(  # noqa: S603 - fixed argv, test-only
-        [sys.executable, "-m", "alembic", "-x", f"url={TEST_DB}", "upgrade", "head"],
-        cwd=BACKEND, check=True, capture_output=True,
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "alembic",
+        "-x",
+        f"url={TEST_DB}",
+        "upgrade",
+        "head",
+        cwd=BACKEND,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
+    output, _ = await proc.communicate()
+    assert proc.returncode == 0, output.decode()
     yield eng
     await eng.dispose()
 

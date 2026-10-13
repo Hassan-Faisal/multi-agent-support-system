@@ -36,13 +36,30 @@ class OrderService:
 
     async def start_return(self, *, customer_id: str, order_id: str, reason: str, actor: str) -> ReturnOut:
         order = await self._owned(customer_id, order_id, lock=True)
-        check_return_allowed(order_status=order.status, delivered_at=order.delivered_at,
-                             has_existing_return=bool(order.returns), today=self.today(), policy=self.policy)
-        ret = Return(id=new_id("RT"), order_id=order.id, customer_id=customer_id, reason=reason[:500],
-                     status=ReturnStatus.LABEL_SENT)
+        check_return_allowed(
+            order_status=order.status,
+            delivered_at=order.delivered_at,
+            has_existing_return=bool(order.returns),
+            today=self.today(),
+            policy=self.policy,
+        )
+        ret = Return(
+            id=new_id("RT"),
+            order_id=order.id,
+            customer_id=customer_id,
+            reason=reason[:500],
+            status=ReturnStatus.LABEL_SENT,
+        )
         self.s.add(ret)
         await self.s.flush()
         await self.s.refresh(ret)
-        await audit.record(self.s, actor=actor, action="return.started", entity_type="return",
-                           entity_id=ret.id, customer_id=customer_id, data={"order_id": order.id})
+        await audit.record(
+            self.s,
+            actor=actor,
+            action="return.started",
+            entity_type="return",
+            entity_id=ret.id,
+            customer_id=customer_id,
+            data={"order_id": order.id},
+        )
         return ReturnOut.model_validate(ret)

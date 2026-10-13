@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 import pytest
 
@@ -93,5 +93,5 @@ async def test_sliding_window_limits_per_key() -> None:
     allowed, retry = await lim.hit("a")
     assert not allowed and retry > 0
     assert (await lim.hit("b"))[0]  # other keys unaffected
-    time.sleep(0.21)
+    await asyncio.sleep(0.21)
     assert (await lim.hit("a"))[0]

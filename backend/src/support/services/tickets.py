@@ -39,17 +39,32 @@ class TicketService:
             if existing:
                 return TicketOut.model_validate(existing), False
 
-        t = Ticket(id=new_id("TKT"), customer_id=customer_id, conversation_id=conversation_id,
-                   category=category, priority=priority, status=TicketStatus.OPEN, summary=summary.strip())
+        t = Ticket(
+            id=new_id("TKT"),
+            customer_id=customer_id,
+            conversation_id=conversation_id,
+            category=category,
+            priority=priority,
+            status=TicketStatus.OPEN,
+            summary=summary.strip(),
+        )
         self.s.add(t)
         await self.s.flush()
         await self.s.refresh(t)
-        await audit.record(self.s, actor=actor, action="ticket.created", entity_type="ticket", entity_id=t.id,
-                           customer_id=customer_id,
-                           data={"category": category.value, "priority": priority.value})
+        await audit.record(
+            self.s,
+            actor=actor,
+            action="ticket.created",
+            entity_type="ticket",
+            entity_id=t.id,
+            customer_id=customer_id,
+            data={"category": category.value, "priority": priority.value},
+        )
         return TicketOut.model_validate(t), True
 
-    async def list(self, *, status: TicketStatus | None = None, customer_id: str | None = None) -> list[TicketOut]:
+    async def list(
+        self, *, status: TicketStatus | None = None, customer_id: str | None = None
+    ) -> list[TicketOut]:
         q = select(Ticket).order_by(Ticket.created_at.desc())
         if status:
             q = q.where(Ticket.status == status)
@@ -65,7 +80,13 @@ class TicketService:
         t.status = status
         await self.s.flush()
         await self.s.refresh(t)
-        await audit.record(self.s, actor=actor, action="ticket.status_changed", entity_type="ticket",
-                           entity_id=t.id, customer_id=t.customer_id,
-                           data={"from": previous.value, "to": status.value})
+        await audit.record(
+            self.s,
+            actor=actor,
+            action="ticket.status_changed",
+            entity_type="ticket",
+            entity_id=t.id,
+            customer_id=t.customer_id,
+            data={"from": previous.value, "to": status.value},
+        )
         return TicketOut.model_validate(t)

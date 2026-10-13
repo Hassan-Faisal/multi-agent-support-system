@@ -2,6 +2,7 @@
 
 Prompts *explain* policy so the model communicates it well; the tools *enforce* it.
 """
+
 from __future__ import annotations
 
 PROMPT_VERSION = "2026-10-13.1"

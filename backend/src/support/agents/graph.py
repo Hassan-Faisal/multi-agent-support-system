@@ -16,6 +16,7 @@
 Every routing decision, tool call and guardrail trip is a trace event, persisted in
 state for the current turn and streamed live via the "custom" stream mode.
 """
+
 from __future__ import annotations
 
 import time
@@ -48,8 +49,13 @@ log = get_logger(__name__)
 
 
 class GraphLimits:
-    def __init__(self, max_handoffs: int = 3, max_tool_steps: int = 8, max_context_messages: int = 40,
-                 injection_threshold: float = 0.8) -> None:
+    def __init__(
+        self,
+        max_handoffs: int = 3,
+        max_tool_steps: int = 8,
+        max_context_messages: int = 40,
+        injection_threshold: float = 0.8,
+    ) -> None:
         self.max_handoffs, self.max_tool_steps = max_handoffs, max_tool_steps
         self.max_context_messages, self.injection_threshold = max_context_messages, injection_threshold
 
@@ -104,8 +110,9 @@ def build_graph(
         ctx = RunContext.from_config(config)
         async with unit_of_work(deps.sessions) as s:
             cust = await CustomerService(s).get(ctx.customer_id)
-        shared = prompts.SHARED.format(customer_name=cust.name, customer_id=cust.id, plan=cust.plan,
-                                       today=date.today().isoformat())
+        shared = prompts.SHARED.format(
+            customer_name=cust.name, customer_id=cust.id, plan=cust.plan, today=date.today().isoformat()
+        )
         return f"{shared}\n\n{prompts.SPECIALISTS[agent]}"
 
     # ------------------------------------------------------------------ nodes
@@ -121,13 +128,18 @@ def build_graph(
         update: dict[str, Any] = {}
         if redaction.changed:
             GUARDRAILS.labels("pii_redacted").inc()
-            events.append({"type": "guardrail", "kind": "pii_redacted", "detail": sorted(set(redaction.findings))})
+            events.append(
+                {"type": "guardrail", "kind": "pii_redacted", "detail": sorted(set(redaction.findings))}
+            )
             update["messages"] = [HumanMessage(redaction.text, id=last.id)]  # replaces the original
         if verdict.blocked(limits.injection_threshold):
             GUARDRAILS.labels("injection_blocked").inc()
             events.append({"type": "guardrail", "kind": "injection_blocked", "score": verdict.score})
             log.warning("guard.injection_blocked", score=verdict.score, signals=verdict.signals)
-            update["messages"] = [*update.get("messages", []), AIMessage(prompts.GUARDRAIL_REFUSAL, name="guardrail")]
+            update["messages"] = [
+                *update.get("messages", []),
+                AIMessage(prompts.GUARDRAIL_REFUSAL, name="guardrail"),
+            ]
             return Command(goto=END, update={**update, "events": reset + emit(*events)})
         if verdict.score > 0:
             events.append({"type": "guardrail", "kind": "injection_suspected", "score": verdict.score})
@@ -139,7 +151,8 @@ def build_graph(
 
     async def triage(state: SupportState, config: RunnableConfig) -> Command[Any]:
         msgs = context_window(state["messages"], 10)
-        decision: RouteDecision = await router.ainvoke([SystemMessage(prompts.TRIAGE), *msgs], config)
+        raw = await router.ainvoke([SystemMessage(prompts.TRIAGE), *msgs], config)
+        decision = RouteDecision.model_validate(raw)
         ROUTES.labels(decision.agent).inc()
         ev = emit({"type": "route", "agent": decision.agent, "reason": decision.reason})
         if decision.agent == "none":
@@ -177,17 +190,25 @@ def build_graph(
                 tool = tools[name].get(call["name"])
                 outcome = "ok"
                 if tool is None:
-                    msg = ToolMessage(f"Error: tool {call['name']!r} is not available to the {name} agent.",
-                                      tool_call_id=call["id"], name=call["name"], status="error")
+                    msg = ToolMessage(
+                        f"Error: tool {call['name']!r} is not available to the {name} agent.",
+                        tool_call_id=call["id"],
+                        name=call["name"],
+                        status="error",
+                    )
                     outcome = "unknown_tool"
                 else:
                     try:
                         msg = await tool.ainvoke({**call, "type": "tool_call"}, config)
                     except Exception as e:  # never crash the turn on a tool failure
                         log.exception("tool.failed", agent=name, tool=call["name"])
-                        msg = ToolMessage("Error: the tool failed unexpectedly. Apologize and offer to "
-                                          "escalate to a human.", tool_call_id=call["id"], name=call["name"],
-                                          status="error")
+                        msg = ToolMessage(
+                            "Error: the tool failed unexpectedly. Apologize and offer to "
+                            "escalate to a human.",
+                            tool_call_id=call["id"],
+                            name=call["name"],
+                            status="error",
+                        )
                         outcome = f"exception:{type(e).__name__}"
                     if '"ok": false' in text_of(msg):
                         outcome = "rejected"
@@ -196,11 +217,25 @@ def build_graph(
 
                 if call["name"].startswith(HANDOFF_PREFIX):
                     handoff_to = handoff_to or call["name"].removeprefix(HANDOFF_PREFIX)
-                    events.append({"type": "handoff", "source": name, "target": handoff_to,
-                                   "reason": call["args"].get("reason", "")})
+                    events.append(
+                        {
+                            "type": "handoff",
+                            "source": name,
+                            "target": handoff_to,
+                            "reason": call["args"].get("reason", ""),
+                        }
+                    )
                 else:
-                    events.append({"type": "tool", "agent": name, "tool": call["name"], "args": call["args"],
-                                   "outcome": outcome, "ms": round((time.perf_counter() - started) * 1000)})
+                    events.append(
+                        {
+                            "type": "tool",
+                            "agent": name,
+                            "tool": call["name"],
+                            "args": call["args"],
+                            "outcome": outcome,
+                            "ms": round((time.perf_counter() - started) * 1000),
+                        }
+                    )
                     if call["name"] == KB_TOOL and getattr(msg, "artifact", None):
                         events.append({"type": "sources", "agent": name, "sources": msg.artifact})
 
@@ -209,18 +244,33 @@ def build_graph(
                 handoffs = state.get("handoffs", 0) + 1
                 if handoffs > limits.max_handoffs and handoff_to != "escalation":
                     GUARDRAILS.labels("handoff_limit").inc()
-                    events.append({"type": "guardrail", "kind": "handoff_limit",
-                                   "detail": f"{handoffs} handoffs this turn; escalating"})
+                    events.append(
+                        {
+                            "type": "guardrail",
+                            "kind": "handoff_limit",
+                            "detail": f"{handoffs} handoffs this turn; escalating",
+                        }
+                    )
                     handoff_to = "escalation"
                 HANDOFFS.labels(name, handoff_to).inc()
-                update |= {"active_agent": handoff_to, "handoffs": handoffs, "steps": 0, "events": emit(*events)}
+                update |= {
+                    "active_agent": handoff_to,
+                    "handoffs": handoffs,
+                    "steps": 0,
+                    "events": emit(*events),
+                }
                 return Command(goto=handoff_to, update=update)
 
             steps = state.get("steps", 0) + 1
             if steps >= limits.max_tool_steps and name != "escalation":
                 GUARDRAILS.labels("tool_step_limit").inc()
-                events.append({"type": "guardrail", "kind": "tool_step_limit",
-                               "detail": f"{name} used {steps} tool rounds; escalating"})
+                events.append(
+                    {
+                        "type": "guardrail",
+                        "kind": "tool_step_limit",
+                        "detail": f"{name} used {steps} tool rounds; escalating",
+                    }
+                )
                 update |= {"active_agent": "escalation", "steps": 0, "events": emit(*events)}
                 return Command(goto="escalation", update=update)
             update |= {"steps": steps, "events": emit(*events)}

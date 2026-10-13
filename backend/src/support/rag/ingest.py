@@ -7,6 +7,7 @@ removed from the index. Safe to run on every deploy.
 
     python -m support.rag.ingest
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +41,12 @@ async def ingest(
     if embedder.dim != EMBEDDING_DIM:
         raise ValueError(f"embedder dim {embedder.dim} != index dim {EMBEDDING_DIM}")
     report = IngestReport()
-    setup = (CHUNKER_VERSION, str(settings.chunk_max_chars), str(settings.chunk_overlap_chars),
-             embedder.model_name)
+    setup = (
+        CHUNKER_VERSION,
+        str(settings.chunk_max_chars),
+        str(settings.chunk_overlap_chars),
+        embedder.model_name,
+    )
 
     async with unit_of_work(sessions) as s:
         existing = {d.slug: d for d in (await s.scalars(select(KbDocument))).all()}
@@ -53,8 +58,12 @@ async def ingest(
             report.unchanged.append(doc.slug)
             continue
 
-        chunks = chunk_markdown(doc.title, doc.body, max_chars=settings.chunk_max_chars,
-                                overlap_chars=settings.chunk_overlap_chars)
+        chunks = chunk_markdown(
+            doc.title,
+            doc.body,
+            max_chars=settings.chunk_max_chars,
+            overlap_chars=settings.chunk_overlap_chars,
+        )
         vectors = await embedder.embed_documents([c.embedding_text for c in chunks])  # outside the txn
 
         async with unit_of_work(sessions) as s:
@@ -66,13 +75,23 @@ async def ingest(
                 row.content_hash, row.embedding_model = fp, embedder.model_name
                 report.updated.append(doc.slug)
             else:
-                row = KbDocument(slug=doc.slug, title=doc.title, url=doc.url, category=doc.category,
-                                 content_hash=fp, embedding_model=embedder.model_name)
+                row = KbDocument(
+                    slug=doc.slug,
+                    title=doc.title,
+                    url=doc.url,
+                    category=doc.category,
+                    content_hash=fp,
+                    embedding_model=embedder.model_name,
+                )
                 s.add(row)
                 report.added.append(doc.slug)
             await s.flush()
-            s.add_all(KbChunk(document_id=row.id, chunk_index=c.index, heading=c.heading, content=c.content,
-                              embedding=v) for c, v in zip(chunks, vectors, strict=True))
+            s.add_all(
+                KbChunk(
+                    document_id=row.id, chunk_index=c.index, heading=c.heading, content=c.content, embedding=v
+                )
+                for c, v in zip(chunks, vectors, strict=True)
+            )
         report.chunks_written += len(chunks)
 
     stale = set(existing) - {d.slug for d in docs}
@@ -88,10 +107,20 @@ async def _main() -> None:
     configure_logging(settings.log_level, settings.log_json)
     engine = create_engine(settings)
     try:
-        report = await ingest(create_session_factory(engine), build_embedder(settings),
-                              load_directory(settings.kb_dir), settings)
-        log.info("kb.ingested", added=report.added, updated=report.updated, removed=report.removed,
-                 unchanged=len(report.unchanged), chunks=report.chunks_written)
+        report = await ingest(
+            create_session_factory(engine),
+            build_embedder(settings),
+            load_directory(settings.kb_dir),
+            settings,
+        )
+        log.info(
+            "kb.ingested",
+            added=report.added,
+            updated=report.updated,
+            removed=report.removed,
+            unchanged=len(report.unchanged),
+            chunks=report.chunks_written,
+        )
     finally:
         await engine.dispose()
 

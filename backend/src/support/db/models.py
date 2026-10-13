@@ -5,6 +5,7 @@ constraints generated from the domain enums (no native PG enums, which are painf
 to migrate). Knowledge-base chunks carry both a pgvector embedding (semantic search)
 and a generated tsvector (keyword search) for hybrid retrieval.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -46,9 +47,15 @@ EMBEDDING_DIM = 1536  # text-embedding-3-small; changing it requires a migration
 
 
 def _enum(e: type[StrEnum], name: str) -> Enum:
-    return Enum(e, name=name, native_enum=False, create_constraint=True, length=32,
-                values_callable=lambda x: [m.value for m in x],
-                validate_strings=True)
+    return Enum(
+        e,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        length=32,
+        values_callable=lambda x: [m.value for m in x],
+        validate_strings=True,
+    )
 
 
 Money = Numeric(10, 2)
@@ -142,8 +149,9 @@ class Ticket(TimestampMixin, Base):
     priority: Mapped[TicketPriority] = mapped_column(_enum(TicketPriority, "ticket_priority"))
     status: Mapped[TicketStatus] = mapped_column(_enum(TicketStatus, "ticket_status"), index=True)
     summary: Mapped[str] = mapped_column(Text)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Conversation(TimestampMixin, Base):
@@ -154,8 +162,9 @@ class Conversation(TimestampMixin, Base):
     customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), index=True)
     title: Mapped[str] = mapped_column(String(200), default="New conversation")
     active_agent: Mapped[str | None] = mapped_column(String(32))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class AuditLog(Base):
@@ -182,10 +191,12 @@ class KbDocument(Base):
     category: Mapped[str] = mapped_column(String(64))
     content_hash: Mapped[str] = mapped_column(String(64))
     embedding_model: Mapped[str] = mapped_column(String(100))
-    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now())
-    chunks: Mapped[list[KbChunk]] = relationship(back_populates="document", cascade="all, delete-orphan",
-                                                 passive_deletes=True)
+    indexed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    chunks: Mapped[list[KbChunk]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class KbChunk(Base):
@@ -202,7 +213,11 @@ class KbChunk(Base):
     document: Mapped[KbDocument] = relationship(back_populates="chunks")
 
     __table_args__ = (
-        Index("ix_kb_chunks_embedding_hnsw", "embedding", postgresql_using="hnsw",
-              postgresql_ops={"embedding": "vector_cosine_ops"}),
+        Index(
+            "ix_kb_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
         Index("ix_kb_chunks_tsv", "tsv", postgresql_using="gin"),
     )

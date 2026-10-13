@@ -33,6 +33,7 @@ class RouteDecision(BaseModel):
     """Which specialist should handle the customer's latest message."""
 
     agent: Literal["billing", "technical", "orders", "escalation", "none"] = Field(
-        description="Specialist to route to, or 'none' for greetings/small talk only.")
+        description="Specialist to route to, or 'none' for greetings/small talk only."
+    )
     reason: str = Field(description="One short sentence explaining the choice.")
     reply: str | None = Field(default=None, description="Short friendly reply, only when agent is 'none'.")

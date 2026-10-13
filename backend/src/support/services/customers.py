@@ -57,12 +57,16 @@ class ConversationService:
 
     async def list(self, customer_id: str, limit: int = 50) -> list[ConversationOut]:
         rows = await self.s.scalars(
-            select(Conversation).where(Conversation.customer_id == customer_id)
-            .order_by(Conversation.updated_at.desc()).limit(limit)
+            select(Conversation)
+            .where(Conversation.customer_id == customer_id)
+            .order_by(Conversation.updated_at.desc())
+            .limit(limit)
         )
         return [ConversationOut.model_validate(c) for c in rows.all()]
 
-    async def touch(self, conversation_id: uuid.UUID, *, active_agent: str | None, first_message: str | None) -> None:
+    async def touch(
+        self, conversation_id: uuid.UUID, *, active_agent: str | None, first_message: str | None
+    ) -> None:
         c = await self.s.get(Conversation, conversation_id)
         if c is None:
             return
@@ -74,15 +78,21 @@ class ConversationService:
 
 async def queue_stats(session: AsyncSession) -> dict[str, int]:
     """Counts for the staff dashboard."""
+
     async def count(q: object) -> int:
         return int(await session.scalar(q) or 0)  # type: ignore[call-overload]
 
     return {
-        "open_tickets": await count(select(func.count()).select_from(Ticket)
-                                    .where(Ticket.status != TicketStatus.RESOLVED)),
-        "urgent_tickets": await count(select(func.count()).select_from(Ticket)
-                                      .where(Ticket.status != TicketStatus.RESOLVED, Ticket.priority == "urgent")),
-        "pending_refunds": await count(select(func.count()).select_from(Refund)
-                                       .where(Refund.status == RefundStatus.PENDING_APPROVAL)),
+        "open_tickets": await count(
+            select(func.count()).select_from(Ticket).where(Ticket.status != TicketStatus.RESOLVED)
+        ),
+        "urgent_tickets": await count(
+            select(func.count())
+            .select_from(Ticket)
+            .where(Ticket.status != TicketStatus.RESOLVED, Ticket.priority == "urgent")
+        ),
+        "pending_refunds": await count(
+            select(func.count()).select_from(Refund).where(Refund.status == RefundStatus.PENDING_APPROVAL)
+        ),
         "conversations": await count(select(func.count()).select_from(Conversation)),
     }

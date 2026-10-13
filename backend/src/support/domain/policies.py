@@ -3,6 +3,7 @@
 These are the rules the agents must never be able to talk their way around, which
 is why they live here and are enforced by the services rather than in prompts.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -6,6 +6,7 @@ overlap. Every chunk gets a heading path ("Doc title › Section") which is prep
 when embedding — a cheap form of contextual retrieval that markedly helps short
 chunks like "Wait 5 minutes before requesting another link."
 """
+
 from __future__ import annotations
 
 import re

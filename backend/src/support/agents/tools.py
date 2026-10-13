@@ -9,6 +9,7 @@ Security model:
 - Domain errors become structured results the model can explain; unexpected errors
   propagate and are handled (and logged) by the graph.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,7 @@ AGENT_DESCRIPTIONS = {
     "technical": "sign-in, passwords, 2FA, crashes, sync, the API and how-to questions",
     "orders": "order status, shipping, tracking, delivery problems, returns and warranty",
     "escalation": "human staff: requests for a person, angry customers, legal or security issues, "
-                  "policy exceptions, or anything the other agents can't resolve",
+    "policy exceptions, or anything the other agents can't resolve",
 }
 
 
@@ -102,9 +103,11 @@ def build_agent_tools(deps: AgentDeps, agent: str) -> list[BaseTool]:
     search_help_center = StructuredTool.from_function(
         coroutine=_search,
         name=KB_TOOL,
-        description=("Search Nimbus help-center articles for how-to steps, troubleshooting and policies "
-                     "(refunds, returns, plans, shipping, security). Pass the customer's question in "
-                     "plain words."),
+        description=(
+            "Search Nimbus help-center articles for how-to steps, troubleshooting and policies "
+            "(refunds, returns, plans, shipping, security). Pass the customer's question in "
+            "plain words."
+        ),
         response_format="content_and_artifact",
     )
 
@@ -117,8 +120,9 @@ def build_agent_tools(deps: AgentDeps, agent: str) -> list[BaseTool]:
             return _json(await BillingService(session, deps.refund_policy).list_invoices(ctx.customer_id))
 
     @tool
-    async def request_refund(invoice_id: str, reason: str, config: RunnableConfig,
-                             amount: float | None = None) -> str:
+    async def request_refund(
+        invoice_id: str, reason: str, config: RunnableConfig, amount: float | None = None
+    ) -> str:
         """Refund one of the customer's invoices. Small refunds are approved instantly; larger ones
         become pending with a ticket for the billing team.
 
@@ -135,14 +139,21 @@ def build_agent_tools(deps: AgentDeps, agent: str) -> list[BaseTool]:
         try:
             async with unit_of_work(s) as session:
                 result = await BillingService(session, deps.refund_policy).request_refund(
-                    customer_id=ctx.customer_id, invoice_id=invoice_id, reason=reason, amount=dec,
-                    actor=actor, conversation_id=ctx.conversation_id)
+                    customer_id=ctx.customer_id,
+                    invoice_id=invoice_id,
+                    reason=reason,
+                    amount=dec,
+                    actor=actor,
+                    conversation_id=ctx.conversation_id,
+                )
         except DomainError as e:
             return _error(e)
-        note = ("Approved. Funds return to the original payment method in 5-7 business days."
-                if result.auto_approved else
-                "Pending approval by the billing team (usually within 4 business hours). "
-                "A ticket has been opened; the customer will get an email with the decision.")
+        note = (
+            "Approved. Funds return to the original payment method in 5-7 business days."
+            if result.auto_approved
+            else "Pending approval by the billing team (usually within 4 business hours). "
+            "A ticket has been opened; the customer will get an email with the decision."
+        )
         return _json({"ok": True, **result.model_dump(mode="json"), "note": note})
 
     # ------------------------------------------------------------ orders
@@ -176,11 +187,18 @@ def build_agent_tools(deps: AgentDeps, agent: str) -> list[BaseTool]:
         try:
             async with unit_of_work(s) as session:
                 ret = await OrderService(session, deps.return_policy).start_return(
-                    customer_id=ctx.customer_id, order_id=order_id, reason=reason, actor=actor)
+                    customer_id=ctx.customer_id, order_id=order_id, reason=reason, actor=actor
+                )
         except DomainError as e:
             return _error(e)
-        return _json({"ok": True, "return": ret, "note": "Prepaid label emailed. Refund is issued 3-5 "
-                      "business days after the warehouse receives the item."})
+        return _json(
+            {
+                "ok": True,
+                "return": ret,
+                "note": "Prepaid label emailed. Refund is issued 3-5 "
+                "business days after the warehouse receives the item.",
+            }
+        )
 
     # ------------------------------------------------------------ escalation
     @tool
@@ -200,12 +218,22 @@ def build_agent_tools(deps: AgentDeps, agent: str) -> list[BaseTool]:
         ctx = RunContext.from_config(config)
         async with unit_of_work(s) as session:
             ticket, created = await TicketService(session).create(
-                customer_id=ctx.customer_id, category=TicketCategory(category),
-                priority=TicketPriority(priority), summary=summary, actor=actor,
-                conversation_id=ctx.conversation_id)
+                customer_id=ctx.customer_id,
+                category=TicketCategory(category),
+                priority=TicketPriority(priority),
+                summary=summary,
+                actor=actor,
+                conversation_id=ctx.conversation_id,
+            )
         sla = "4 hours" if ticket.priority in ("high", "urgent") else "24 hours"
-        return _json({"ok": True, "ticket": ticket, "already_existed": not created,
-                      "note": f"A support specialist will reply by email within {sla}."})
+        return _json(
+            {
+                "ok": True,
+                "ticket": ticket,
+                "already_existed": not created,
+                "note": f"A support specialist will reply by email within {sla}.",
+            }
+        )
 
     per_agent: dict[str, list[BaseTool]] = {
         "billing": [get_customer_profile, list_invoices, request_refund, search_help_center],

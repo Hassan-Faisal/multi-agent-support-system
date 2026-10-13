@@ -3,6 +3,7 @@
 Label sets are kept small and bounded (agent names, tool names, outcomes) to avoid
 cardinality blow-ups; never label with user ids or free text.
 """
+
 from __future__ import annotations
 
 from prometheus_client import Counter, Histogram
@@ -12,7 +13,8 @@ HTTP_LATENCY = Histogram("support_http_request_seconds", "HTTP latency", ["metho
 
 TURNS = Counter("support_turns_total", "Customer turns processed", ["outcome"])
 TURN_LATENCY = Histogram(
-    "support_turn_seconds", "End-to-end latency of one customer turn",
+    "support_turn_seconds",
+    "End-to-end latency of one customer turn",
     buckets=(0.5, 1, 2, 4, 8, 15, 30, 60, 120),
 )
 ROUTES = Counter("support_triage_routes_total", "Triage routing decisions", ["agent"])

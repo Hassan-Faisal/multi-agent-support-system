@@ -6,6 +6,7 @@ article) while full-text nails exact tokens that embeddings blur (error codes li
 "403", product names, "2FA"). RRF combines rankings without having to calibrate two
 incomparable score scales.
 """
+
 from __future__ import annotations
 
 import re
@@ -55,8 +56,15 @@ def or_tsquery(text: str) -> str | None:
 
 
 class HybridRetriever:
-    def __init__(self, sessions: SessionFactory, embedder: Embedder, *, candidates: int = 20,
-                 max_chunks_per_doc: int = 2, min_score: float = 0.0) -> None:
+    def __init__(
+        self,
+        sessions: SessionFactory,
+        embedder: Embedder,
+        *,
+        candidates: int = 20,
+        max_chunks_per_doc: int = 2,
+        min_score: float = 0.0,
+    ) -> None:
         self.sessions, self.embedder = sessions, embedder
         self.candidates, self.max_per_doc, self.min_score = candidates, max_chunks_per_doc, min_score
 
@@ -65,23 +73,44 @@ class HybridRetriever:
         qvec = await self.embedder.embed_query(query)
         tsq = or_tsquery(query)
         async with self.sessions() as s:
-            semantic = list((await s.scalars(
-                select(KbChunk.id).order_by(KbChunk.embedding.cosine_distance(qvec)).limit(self.candidates)
-            )).all())
+            semantic = list(
+                (
+                    await s.scalars(
+                        select(KbChunk.id)
+                        .order_by(KbChunk.embedding.cosine_distance(qvec))
+                        .limit(self.candidates)
+                    )
+                ).all()
+            )
             lexical: list[int] = []
             if tsq:
                 q = func.to_tsquery("english", tsq)
-                lexical = list((await s.scalars(
-                    select(KbChunk.id).where(KbChunk.tsv.op("@@")(q))
-                    .order_by(func.ts_rank_cd(KbChunk.tsv, q).desc()).limit(self.candidates)
-                )).all())
+                lexical = list(
+                    (
+                        await s.scalars(
+                            select(KbChunk.id)
+                            .where(KbChunk.tsv.op("@@")(q))
+                            .order_by(func.ts_rank_cd(KbChunk.tsv, q).desc())
+                            .limit(self.candidates)
+                        )
+                    ).all()
+                )
 
             fused = rrf_fuse({"semantic": semantic, "keyword": lexical})
             ranked = sorted(fused.items(), key=lambda kv: kv[1][0], reverse=True)
             ids = [cid for cid, _ in ranked]
-            rows = {r.KbChunk.id: r for r in (await s.execute(
-                select(KbChunk, KbDocument).join(KbDocument).where(KbChunk.id.in_(ids))
-            )).all()} if ids else {}
+            rows = (
+                {
+                    r.KbChunk.id: r
+                    for r in (
+                        await s.execute(
+                            select(KbChunk, KbDocument).join(KbDocument).where(KbChunk.id.in_(ids))
+                        )
+                    ).all()
+                }
+                if ids
+                else {}
+            )
 
         results: list[RetrievedChunk] = []
         per_doc: dict[str, int] = {}
@@ -92,8 +121,11 @@ class HybridRetriever:
             if per_doc.get(doc.slug, 0) >= self.max_per_doc:
                 continue  # diversity: don't fill all slots from one article
             per_doc[doc.slug] = per_doc.get(doc.slug, 0) + 1
-            results.append(RetrievedChunk(cid, doc.slug, doc.title, doc.url, chunk.heading, chunk.content,
-                                          round(score, 5), by))
+            results.append(
+                RetrievedChunk(
+                    cid, doc.slug, doc.title, doc.url, chunk.heading, chunk.content, round(score, 5), by
+                )
+            )
             if len(results) == top_k:
                 break
         RETRIEVALS.observe(time.perf_counter() - start)

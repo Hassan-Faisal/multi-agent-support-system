@@ -1,4 +1,5 @@
 """Load knowledge-base markdown files with YAML front matter."""
+
 from __future__ import annotations
 
 import hashlib
@@ -40,8 +41,13 @@ def parse_markdown(slug: str, raw: str) -> SourceDocument:
     missing = {"title", "url", "category"} - meta.keys()
     if missing:
         raise DocumentError(f"{slug}: front matter missing {sorted(missing)}")
-    return SourceDocument(slug=slug, title=str(meta["title"]), url=str(meta["url"]),
-                          category=str(meta["category"]), body=body.strip())
+    return SourceDocument(
+        slug=slug,
+        title=str(meta["title"]),
+        url=str(meta["url"]),
+        category=str(meta["category"]),
+        body=body.strip(),
+    )
 
 
 def load_directory(path: str | Path) -> list[SourceDocument]:

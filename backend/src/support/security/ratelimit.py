@@ -3,6 +3,7 @@
 In-process implementation behind a small protocol. With more than one API replica,
 swap in a Redis implementation (sorted set per key) with the same interface.
 """
+
 from __future__ import annotations
 
 import asyncio

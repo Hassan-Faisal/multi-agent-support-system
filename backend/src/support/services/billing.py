@@ -48,22 +48,34 @@ class BillingService:
             raise NotFound(f"Invoice {invoice_id} was not found on this account.")
 
         decision = decide_refund(
-            invoice_amount=inv.amount, invoice_status=inv.status, issued_at=inv.issued_at,
-            has_existing_refund=bool(inv.refunds), requested_amount=amount, today=self.today(),
+            invoice_amount=inv.amount,
+            invoice_status=inv.status,
+            issued_at=inv.issued_at,
+            has_existing_refund=bool(inv.refunds),
+            requested_amount=amount,
+            today=self.today(),
             policy=self.policy,
         )
 
         ticket = None
         if not decision.auto_approve:
             ticket, _ = await TicketService(self.s).create(
-                customer_id=customer_id, category=TicketCategory.BILLING, priority=TicketPriority.HIGH,
-                summary=(f"Refund approval needed: {decision.amount} on {inv.id} ({inv.description}). "
-                         f"Customer reason: {reason}"),
-                actor=actor, conversation_id=conversation_id,
+                customer_id=customer_id,
+                category=TicketCategory.BILLING,
+                priority=TicketPriority.HIGH,
+                summary=(
+                    f"Refund approval needed: {decision.amount} on {inv.id} ({inv.description}). "
+                    f"Customer reason: {reason}"
+                ),
+                actor=actor,
+                conversation_id=conversation_id,
             )
 
         refund = Refund(
-            id=new_id("RF"), invoice_id=inv.id, customer_id=customer_id, amount=decision.amount,
+            id=new_id("RF"),
+            invoice_id=inv.id,
+            customer_id=customer_id,
+            amount=decision.amount,
             reason=reason[:500],
             status=RefundStatus.APPROVED if decision.auto_approve else RefundStatus.PENDING_APPROVAL,
             ticket_id=ticket.id if ticket else None,
@@ -73,12 +85,18 @@ class BillingService:
         self.s.add(refund)
         await self.s.flush()
         await self.s.refresh(refund)
-        await audit.record(self.s, actor=actor, action="refund.requested", entity_type="refund",
-                           entity_id=refund.id, customer_id=customer_id,
-                           data={"invoice_id": inv.id, "amount": str(decision.amount),
-                                 "status": refund.status.value})
-        return RefundResult(refund=RefundOut.model_validate(refund), ticket=ticket,
-                            auto_approved=decision.auto_approve)
+        await audit.record(
+            self.s,
+            actor=actor,
+            action="refund.requested",
+            entity_type="refund",
+            entity_id=refund.id,
+            customer_id=customer_id,
+            data={"invoice_id": inv.id, "amount": str(decision.amount), "status": refund.status.value},
+        )
+        return RefundResult(
+            refund=RefundOut.model_validate(refund), ticket=ticket, auto_approved=decision.auto_approve
+        )
 
     async def list_refunds(self, status: RefundStatus | None = None) -> list[RefundOut]:
         q = select(Refund).order_by(Refund.created_at.desc())
@@ -99,7 +117,13 @@ class BillingService:
             await TicketService(self.s).set_status(refund.ticket_id, TicketStatus.RESOLVED, actor=actor)
         await self.s.flush()
         await self.s.refresh(refund)
-        await audit.record(self.s, actor=actor, action="refund.approved" if approve else "refund.rejected",
-                           entity_type="refund", entity_id=refund.id, customer_id=refund.customer_id,
-                           data={"amount": str(refund.amount), "note": note})
+        await audit.record(
+            self.s,
+            actor=actor,
+            action="refund.approved" if approve else "refund.rejected",
+            entity_type="refund",
+            entity_id=refund.id,
+            customer_id=refund.customer_id,
+            data={"amount": str(refund.amount), "note": note},
+        )
         return RefundOut.model_validate(refund)

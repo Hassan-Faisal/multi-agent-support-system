@@ -21,11 +21,21 @@ async def record(
 ) -> None:
     """Append an audit entry inside the caller's transaction, so it commits atomically
     with the change it describes."""
-    session.add(AuditLog(actor=actor, action=action, entity_type=entity_type, entity_id=entity_id,
-                         customer_id=customer_id, data=data or {}))
+    session.add(
+        AuditLog(
+            actor=actor,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            customer_id=customer_id,
+            data=data or {},
+        )
+    )
 
 
-async def list_entries(session: AsyncSession, *, limit: int = 100, customer_id: str | None = None) -> list[AuditOut]:
+async def list_entries(
+    session: AsyncSession, *, limit: int = 100, customer_id: str | None = None
+) -> list[AuditOut]:
     q = select(AuditLog).order_by(AuditLog.at.desc(), AuditLog.id.desc()).limit(limit)
     if customer_id:
         q = q.where(AuditLog.customer_id == customer_id)

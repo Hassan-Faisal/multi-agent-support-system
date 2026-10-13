@@ -5,11 +5,13 @@ offline feature-hashing embedder used in tests and keyless local runs: it captur
 lexical overlap only (no semantics), so the hybrid retriever still works, just with
 weaker recall on paraphrases. Never use it in production.
 """
+
 from __future__ import annotations
 
 import hashlib
 import math
 import re
+from itertools import pairwise
 from typing import Protocol
 
 from support.settings import Settings
@@ -25,7 +27,9 @@ class Embedder(Protocol):
 
 
 class OpenAIEmbedder:
-    def __init__(self, api_key: str, model: str, dim: int, batch_size: int = 96, timeout_s: float = 30.0) -> None:
+    def __init__(
+        self, api_key: str, model: str, dim: int, batch_size: int = 96, timeout_s: float = 30.0
+    ) -> None:
         from openai import AsyncOpenAI
 
         self._client = AsyncOpenAI(api_key=api_key, timeout=timeout_s, max_retries=3)
@@ -45,8 +49,52 @@ class OpenAIEmbedder:
 
 
 _TOKEN = re.compile(r"[a-z0-9]+")
-_STOP = frozenset("a an and are as at be but by can do for from has have how i if in is it its my of on or "
-                  "so that the this to was we what when where which why will with you your".split())
+_STOP = frozenset(
+    [
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "but",
+        "by",
+        "can",
+        "do",
+        "for",
+        "from",
+        "has",
+        "have",
+        "how",
+        "i",
+        "if",
+        "in",
+        "is",
+        "it",
+        "its",
+        "my",
+        "of",
+        "on",
+        "or",
+        "so",
+        "that",
+        "the",
+        "this",
+        "to",
+        "was",
+        "we",
+        "what",
+        "when",
+        "where",
+        "which",
+        "why",
+        "will",
+        "with",
+        "you",
+        "your",
+    ]
+)
 
 
 class HashingEmbedder:
@@ -60,7 +108,7 @@ class HashingEmbedder:
 
     def _vector(self, text: str) -> list[float]:
         words = [self._norm(t) for t in _TOKEN.findall(text.lower()) if t not in _STOP]
-        features = words + [f"{a}_{b}" for a, b in zip(words, words[1:], strict=False)]
+        features = words + [f"{a}_{b}" for a, b in pairwise(words)]
         vec = [0.0] * self.dim
         for f in features:
             h = int.from_bytes(hashlib.blake2b(f.encode(), digest_size=8).digest(), "big")
@@ -83,5 +131,6 @@ def build_embedder(settings: Settings) -> Embedder:
             "OPENAI_API_KEY is required for embedding_provider=openai "
             "(set SUPPORT_EMBEDDING_PROVIDER=hashing for an offline, lexical-only fallback)"
         )
-    return OpenAIEmbedder(settings.openai_api_key.get_secret_value(), settings.embedding_model,
-                          settings.embedding_dim)
+    return OpenAIEmbedder(
+        settings.openai_api_key.get_secret_value(), settings.embedding_model, settings.embedding_dim
+    )

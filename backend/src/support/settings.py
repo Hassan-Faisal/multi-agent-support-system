@@ -3,6 +3,7 @@
 Everything tunable lives here so behaviour is explicit and reviewable. Secrets use
 SecretStr so they never end up in logs or reprs.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
     max_handoffs_per_turn: int = 3
     max_tool_steps_per_agent: int = 8
     injection_block_threshold: float = 0.8
+    turn_timeout_s: float = 120.0
 
     # ------------------------------------------------------------ business policy
     refund_auto_approve_limit: Decimal = Decimal("50.00")

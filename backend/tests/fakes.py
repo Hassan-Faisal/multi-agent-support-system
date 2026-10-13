@@ -1,6 +1,8 @@
 """Deterministic stand-ins for LLMs, so graph behaviour is testable without API keys."""
+
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -17,13 +19,22 @@ class ScriptedChatModel(BaseChatModel):
 
     responses: list[Any] = []
     calls: list[list[BaseMessage]] = []
+    delay_s: float = 0.0
 
     @property
     def _llm_type(self) -> str:
         return "scripted"
 
-    def _generate(self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None,
-                  **kwargs: Any) -> ChatResult:
+    async def _agenerate(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> ChatResult:
+        if self.delay_s:
+            await asyncio.sleep(self.delay_s)
+        return self._generate(messages, stop, run_manager, **kwargs)
+
+    def _generate(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> ChatResult:
         self.calls.append(messages)
         if not self.responses:
             raise AssertionError("ScriptedChatModel ran out of responses")
@@ -42,7 +53,12 @@ class ScriptedChatModel(BaseChatModel):
                 raise AssertionError("ScriptedChatModel ran out of route decisions")
             return schema(**self.responses.pop(0))
 
-        return RunnableLambda(run)
+        async def arun(messages: list[BaseMessage]) -> Any:
+            if self.delay_s:
+                await asyncio.sleep(self.delay_s)
+            return run(messages)
+
+        return RunnableLambda(run, afunc=arun)
 
 
 def scripted(*responses: Any) -> ScriptedChatModel:
@@ -50,5 +66,6 @@ def scripted(*responses: Any) -> ScriptedChatModel:
 
 
 def tool_call(name: str, args: dict[str, Any] | None = None, idx: int = 0) -> AIMessage:
-    return AIMessage("", tool_calls=[{"name": name, "args": args or {}, "id": f"call_{name}_{idx}",
-                                      "type": "tool_call"}])
+    return AIMessage(
+        "", tool_calls=[{"name": name, "args": args or {}, "id": f"call_{name}_{idx}", "type": "tool_call"}]
+    )

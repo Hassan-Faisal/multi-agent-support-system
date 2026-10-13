@@ -24,7 +24,9 @@ async def _chunks(sessions: SessionFactory) -> int:
         return int(await s.scalar(select(func.count()).select_from(KbChunk)) or 0)
 
 
-async def test_ingestion_is_idempotent_and_tracks_changes(sessions: SessionFactory, settings: Settings) -> None:
+async def test_ingestion_is_idempotent_and_tracks_changes(
+    sessions: SessionFactory, settings: Settings
+) -> None:
     first = await ingest(sessions, EMB, KB, settings)
     assert len(first.added) == len(KB) and first.chunks_written == await _chunks(sessions)
 
@@ -36,7 +38,9 @@ async def test_ingestion_is_idempotent_and_tracks_changes(sessions: SessionFacto
     assert third.updated == [KB[0].slug] and third.removed == [KB[-1].slug]
 
 
-async def test_hybrid_retrieval_quality_on_labelled_queries(sessions: SessionFactory, settings: Settings) -> None:
+async def test_hybrid_retrieval_quality_on_labelled_queries(
+    sessions: SessionFactory, settings: Settings
+) -> None:
     """Guards against retrieval regressions. With the lexical-only hashing embedder this
     is a floor; the real-embedding run lives in the eval suite."""
     await ingest(sessions, EMB, KB, settings)
@@ -61,6 +65,8 @@ async def test_exact_tokens_are_found_by_keyword_search(sessions: SessionFactory
 
 async def test_results_are_diversified_across_documents(sessions: SessionFactory, settings: Settings) -> None:
     await ingest(sessions, EMB, KB, settings)
-    results = await HybridRetriever(sessions, EMB, max_chunks_per_doc=1).search("refund invoice card", top_k=4)
+    results = await HybridRetriever(sessions, EMB, max_chunks_per_doc=1).search(
+        "refund invoice card", top_k=4
+    )
     slugs = [r.slug for r in results]
     assert len(slugs) == len(set(slugs))

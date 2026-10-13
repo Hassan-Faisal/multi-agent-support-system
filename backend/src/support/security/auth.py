@@ -1,4 +1,5 @@
 """Password hashing (stdlib scrypt) and JWT access tokens."""
+
 from __future__ import annotations
 
 import base64
@@ -71,4 +72,6 @@ def decode_access_token(token: str, secret: str, algorithm: str) -> Principal:
         raise TokenError(str(e)) from e
     if c["role"] not in ("customer", "agent"):
         raise TokenError("invalid role")
-    return Principal(user_id=c["sub"], role=c["role"], customer_id=c.get("cid"), display_name=c.get("name", ""))
+    return Principal(
+        user_id=c["sub"], role=c["role"], customer_id=c.get("cid"), display_name=c.get("name", "")
+    )

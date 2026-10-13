@@ -10,9 +10,9 @@ for hybrid retrieval, and the append-only audit log.
 
 from collections.abc import Sequence
 
+import pgvector.sqlalchemy
 import sqlalchemy as sa
 from alembic import op
-import pgvector.sqlalchemy
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0001"

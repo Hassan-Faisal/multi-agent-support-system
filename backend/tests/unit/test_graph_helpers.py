@@ -25,7 +25,9 @@ def test_context_window_never_starts_mid_tool_exchange() -> None:
 
 
 def test_text_of_handles_content_blocks() -> None:
-    assert text_of(AIMessage([{"type": "text", "text": "Hi "}, {"type": "text", "text": "there"}])) == "Hi there"
+    assert (
+        text_of(AIMessage([{"type": "text", "text": "Hi "}, {"type": "text", "text": "there"}])) == "Hi there"
+    )
 
 
 def test_cited_sources_prefers_cited_articles() -> None:

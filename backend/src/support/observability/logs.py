@@ -4,6 +4,7 @@ JSON lines in prod (ship to any log stack), pretty console in dev. Request-scope
 fields (request_id, user_id, conversation_id) are bound via contextvars and appear on
 every log line emitted while handling that request.
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,4 +46,4 @@ def configure_logging(level: str = "INFO", json: bool = True) -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    return structlog.get_logger(name)  # type: ignore[no-any-return]
+    return structlog.get_logger(name)

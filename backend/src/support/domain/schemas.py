@@ -1,4 +1,5 @@
 """Read models returned by services. Agents and the API depend on these, never on ORM objects."""
+
 from __future__ import annotations
 
 import secrets

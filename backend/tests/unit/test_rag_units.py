@@ -1,4 +1,5 @@
 import math
+from itertools import pairwise
 
 import pytest
 
@@ -35,7 +36,7 @@ def test_long_sections_split_within_budget_with_overlap() -> None:
     assert len(chunks) > 2
     assert all(len(c.content) <= 400 for c in chunks)
     # each chunk after the first starts with the previous chunk's last paragraph
-    for prev, nxt in zip(chunks, chunks[1:], strict=False):
+    for prev, nxt in pairwise(chunks):
         assert nxt.content.split("\n\n")[0] == prev.content.split("\n\n")[-1]
 
 

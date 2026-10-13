@@ -12,9 +12,15 @@ POLICY = RefundPolicy(auto_approve_limit=Decimal("50.00"), window_days=30)
 
 
 def refund(**overrides):  # type: ignore[no-untyped-def]
-    args = dict(invoice_amount=Decimal("29.00"), invoice_status=InvoiceStatus.PAID,
-                issued_at=TODAY - timedelta(days=10), has_existing_refund=False, requested_amount=None,
-                today=TODAY, policy=POLICY)
+    args = dict(
+        invoice_amount=Decimal("29.00"),
+        invoice_status=InvoiceStatus.PAID,
+        issued_at=TODAY - timedelta(days=10),
+        has_existing_refund=False,
+        requested_amount=None,
+        today=TODAY,
+        policy=POLICY,
+    )
     return decide_refund(**{**args, **overrides})
 
 
@@ -58,8 +64,13 @@ def test_refund_window_boundary_is_inclusive() -> None:
 
 def test_return_rules() -> None:
     policy = ReturnPolicy(window_days=30)
-    ok = dict(order_status=OrderStatus.DELIVERED, delivered_at=TODAY - timedelta(days=5),
-              has_existing_return=False, today=TODAY, policy=policy)
+    ok = dict(
+        order_status=OrderStatus.DELIVERED,
+        delivered_at=TODAY - timedelta(days=5),
+        has_existing_return=False,
+        today=TODAY,
+        policy=policy,
+    )
     check_return_allowed(**ok)  # type: ignore[arg-type]
     with pytest.raises(PolicyViolation, match="in transit"):
         check_return_allowed(**{**ok, "order_status": OrderStatus.IN_TRANSIT, "delivered_at": None})  # type: ignore[arg-type]

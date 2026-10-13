@@ -1,5 +1,6 @@
 """Domain errors. The API maps them to RFC 7807 problem responses; agent tools turn
 them into structured tool results the model can explain to the customer."""
+
 from __future__ import annotations
 
 

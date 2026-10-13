@@ -4,9 +4,11 @@ We redact data we never need to answer a support question: payment card numbers
 (Luhn-validated, so order ids and phone numbers aren't mangled), US SSNs and IBANs.
 Emails and names are left alone because support genuinely needs them.
 """
+
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 _CARD = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
@@ -46,7 +48,7 @@ def redact_pii(text: str) -> Redaction:
             return f"[REDACTED_CARD_…{digits[-4:]}]"
         return m.group()
 
-    def tag(kind: str) -> object:
+    def tag(kind: str) -> Callable[[re.Match[str]], str]:
         def sub(_: re.Match[str]) -> str:
             findings.append(kind)
             return f"[REDACTED_{kind.upper()}]"
@@ -54,6 +56,6 @@ def redact_pii(text: str) -> Redaction:
         return sub
 
     out = _CARD.sub(card, text)
-    out = _SSN.sub(tag("ssn"), out)  # type: ignore[arg-type]
-    out = _IBAN.sub(tag("iban"), out)  # type: ignore[arg-type]
+    out = _SSN.sub(tag("ssn"), out)
+    out = _IBAN.sub(tag("iban"), out)
     return Redaction(out, findings)
