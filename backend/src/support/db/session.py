@@ -12,7 +12,7 @@ SessionFactory = async_sessionmaker[AsyncSession]
 
 def create_engine(settings: Settings) -> AsyncEngine:
     return create_async_engine(
-        settings.database_url,
+        settings.async_database_url,
         pool_size=settings.db_pool_size,
         pool_pre_ping=True,
     )

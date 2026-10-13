@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from support.db.models import Base
+from support.db.urls import to_asyncpg_url
 from support.settings import get_settings
 
 config = context.config
@@ -19,7 +20,8 @@ target_metadata = Base.metadata
 
 def _url() -> str:
     # Allows `alembic -x url=...` (used by tests), else settings.
-    return context.get_x_argument(as_dictionary=True).get("url") or get_settings().database_url
+    url = context.get_x_argument(as_dictionary=True).get("url")
+    return to_asyncpg_url(url) if url else get_settings().async_database_url
 
 
 def run_migrations_offline() -> None:

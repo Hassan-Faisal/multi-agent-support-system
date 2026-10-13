@@ -1,0 +1,32 @@
+# Render Blueprint: one free web service running the API + web app from the root Dockerfile.
+# The database is external (Neon free tier). Step-by-step guide: docs/deploy.md
+services:
+  - type: web
+    name: multi-agent-support-system
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    # Deploy each push to main only after the CI checks (tests, lint, build) pass.
+    autoDeployTrigger: checksPass
+    envVars:
+      # Prompted on first deploy: paste Neon's connection string unchanged.
+      - key: SUPPORT_DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Render generates a long random value, so you never pick one by hand.
+      - key: SUPPORT_JWT_SECRET
+        generateValue: true
+      - key: SUPPORT_ENABLE_DEMO_ACCOUNTS
+        value: "true"
+      # Public demo: keep OpenAI spend predictable. Every visitor shares the demo
+      # accounts, so this per-account limit acts as a site-wide cap.
+      - key: SUPPORT_RATE_LIMIT_PER_MINUTE
+        value: "6"
+      # Neon's free tier allows few connections; keep pools small.
+      - key: SUPPORT_DB_POOL_SIZE
+        value: "3"
+      - key: SUPPORT_LOG_JSON
+        value: "true"

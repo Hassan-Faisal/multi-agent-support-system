@@ -72,7 +72,10 @@ async def build_container(
 
         pool: AsyncConnectionPool[Any] = AsyncConnectionPool(
             settings.psycopg_url,
-            max_size=settings.db_pool_size,
+            min_size=1,  # default (4) would exceed small pools on free-tier databases
+            max_size=max(1, settings.db_pool_size),
+            # Serverless Postgres (e.g. Neon) suspends when idle; verify connections on checkout.
+            check=AsyncConnectionPool.check_connection,
             open=False,
             kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
         )

@@ -80,6 +80,8 @@ Sign in with a demo account from the login page (password `demo1234` for all):
 
 Everything runs on one OpenAI key: `gpt-6.1-sol` for the specialists, `gpt-6-luna` for routing, `text-embedding-3-small` for the help-center index. Any model works via `SUPPORT_LLM_MODEL` / `SUPPORT_TRIAGE_MODEL`, including other providers' (`pip install -e ".[anthropic]"` for `anthropic:` models). To skip embedding costs in a demo, set `SUPPORT_EMBEDDING_PROVIDER=hashing` for a lexical-only index.
 
+**Deploy for free:** one Render web service (API + web app from the root `Dockerfile`) plus Neon's free Postgres with pgvector. `render.yaml` sets it up as a Blueprint; step-by-step guide in [`docs/deploy.md`](docs/deploy.md).
+
 **Local development:**
 
 ```bash

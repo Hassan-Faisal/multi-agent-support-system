@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from support.api.chat import ChatRunner
 from support.api.container import Container, build_container
 from support.api.routes import admin, auth, conversations, health
+from support.api.spa import mount_spa
 from support.domain.errors import DomainError
 from support.observability.logs import configure_logging, get_logger
 from support.observability.metrics import HTTP_LATENCY, HTTP_REQUESTS
@@ -108,6 +109,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     app.include_router(conversations.router, prefix=api_prefix)
     app.include_router(admin.router, prefix=api_prefix)
     app.include_router(health.router)
+    if settings.static_dir:  # last: the SPA catch-all must not shadow API routes
+        mount_spa(app, settings.static_dir)
     return app
 
 

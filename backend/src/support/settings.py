@@ -11,8 +11,10 @@ from functools import lru_cache
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import Field, SecretStr, computed_field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from support.db.urls import to_asyncpg_url, to_libpq_url
 
 
 class Settings(BaseSettings):
@@ -23,6 +25,7 @@ class Settings(BaseSettings):
     log_json: bool = True
 
     # ------------------------------------------------------------ database
+    # Any PostgreSQL URL form works, including a hosted provider's URL pasted as-is (see db/urls.py).
     database_url: str = "postgresql+asyncpg://support:support@localhost:5432/support"
     db_pool_size: int = 10
 
@@ -71,11 +74,20 @@ class Settings(BaseSettings):
     refund_window_days: int = 30
     return_window_days: int = 30
 
-    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def async_database_url(self) -> str:
+        """URL for SQLAlchemy + asyncpg."""
+        return to_asyncpg_url(self.database_url)
+
     @property
     def psycopg_url(self) -> str:
-        """Plain libpq URL for the LangGraph Postgres checkpointer (psycopg, not asyncpg)."""
-        return self.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        """Plain libpq URL for the LangGraph Postgres checkpointer (psycopg)."""
+        return to_libpq_url(self.database_url)
+
+    # ------------------------------------------------------------ web
+    # Directory with the built React app. When set, the API also serves the UI, so the
+    # whole product runs as a single service (used by the root Dockerfile).
+    static_dir: str | None = None
 
 
 @lru_cache

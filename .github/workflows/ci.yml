@@ -74,3 +74,6 @@ jobs:
         with: { context: backend, push: false, cache-from: type=gha, cache-to: "type=gha,mode=max" }
       - uses: docker/build-push-action@v6
         with: { context: frontend, push: false, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - name: Single-service image (used by Render)
+        uses: docker/build-push-action@v6
+        with: { context: ., file: Dockerfile, push: false, cache-from: type=gha, cache-to: "type=gha,mode=max" }

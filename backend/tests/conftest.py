@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from support.db.seed import reset, seed
 from support.db.session import SessionFactory, create_session_factory, unit_of_work
+from support.db.urls import to_asyncpg_url
 from support.domain.policies import RefundPolicy, ReturnPolicy
 from support.settings import Settings
 
@@ -62,7 +63,7 @@ def return_policy() -> ReturnPolicy:
 @pytest.fixture(scope="session")
 async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
     assert TEST_DB, "integration fixture used without TEST_DATABASE_URL"
-    eng = create_async_engine(TEST_DB)
+    eng = create_async_engine(to_asyncpg_url(TEST_DB))
     async with eng.begin() as conn:
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
