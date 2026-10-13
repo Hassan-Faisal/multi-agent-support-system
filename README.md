@@ -12,14 +12,14 @@ A customer writes in; a front-desk router hands them to the right AI specialist 
 
 | | |
 |---|---|
-| **Agent orchestration** | Explicit LangGraph state machine: guard → triage → specialist ⇄ tools, with in-turn handoffs, scope control on every message (off-topic chat gets a fixed redirect), a handoff cap and a tool-step cap that both fall back to humans. [`agents/graph.py`](backend/src/support/agents/graph.py) |
+| **Agent orchestration** | Explicit LangGraph state machine: guard → triage → specialist ⇄ tools, with in-turn handoffs, scope control on every message (off-topic chat and greetings get fixed replies; the router never writes customer-facing text), a handoff cap and a tool-step cap that both fall back to humans. [`agents/graph.py`](backend/src/support/agents/graph.py) |
 | **Policy lives in code** | Refund limits, refund/return windows and one-refund-per-invoice are pure functions enforced by transactional services with row locks. A manipulated model still can't refund another customer's invoice or exceed a limit. [`domain/policies.py`](backend/src/support/domain/policies.py) |
 | **Hybrid RAG** | Markdown-aware chunking with heading paths, pgvector HNSW + Postgres full-text, fused with Reciprocal Rank Fusion, per-document diversity, idempotent fingerprinted ingestion, cited sources in replies. [`rag/`](backend/src/support/rag) |
 | **Human in the loop** | Refunds over $50 become pending with an auto-opened ticket; staff approve or decline in the console; everything is audited. |
 | **Guardrails** | PII (Luhn-validated cards, SSNs, IBANs) redacted before any model or log sees it; prompt-injection screening; retrieved docs fenced as untrusted data; identity taken only from the JWT, never from tool arguments. [`docs/security.md`](docs/security.md) |
 | **Streaming** | Turns run as background tasks feeding Server-Sent Events, so a dropped connection doesn't lose a half-finished reply; 409 on concurrent turns; per-user rate limiting. |
-| **Evaluation** | 17 behavioural agent scenarios (routing, tools, DB side effects, safety) + a 22-query retrieval benchmark (recall@3, MRR) + optional LLM judge. Runs in CI on prompt changes. [`evals/`](backend/evals) |
-| **Engineering hygiene** | 74 backend tests on real Postgres (migrations included, 92% coverage), ruff + strict-ish mypy, 11 frontend tests, structured JSON logs with request ids, Prometheus metrics, health/readiness probes, RFC 7807 errors. |
+| **Evaluation** | 22 behavioural agent scenarios (routing, tools, DB side effects, safety) + a 22-query retrieval benchmark (recall@3, MRR) + optional LLM judge. Runs in CI on prompt changes. [`evals/`](backend/evals) |
+| **Engineering hygiene** | 86 backend tests on real Postgres (migrations included, 92% coverage), ruff + strict-ish mypy, 12 frontend tests, structured JSON logs with request ids, Prometheus metrics, health/readiness probes, RFC 7807 errors. |
 
 ## Architecture
 

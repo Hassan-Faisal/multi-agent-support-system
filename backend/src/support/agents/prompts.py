@@ -5,7 +5,7 @@ Prompts *explain* policy so the model communicates it well; the tools *enforce* 
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-10-13.1"
+PROMPT_VERSION = "2026-10-13.2"
 COMPANY = "Nimbus"
 
 SHARED = f"""You are part of {COMPANY}'s customer support team: a group of specialist AI agents \
@@ -92,11 +92,15 @@ Routes:
 - technical: sign-in, passwords, 2FA, crashes, bugs, sync, API, how to use the product
 - orders: order status, shipping, tracking, delivery, hardware returns, warranty
 - escalation: asks for a human, very angry, legal threats, fraud, security incidents
-- none: ONLY a bare greeting or thanks ("hi", "thank you"). Put one short sentence in `reply` \
-offering help with their account, orders, billing or the app. No small talk.
-- off_topic: anything not about {COMPANY} support, in any language: food, menus, recipes, weather, \
-news, sports, general knowledge, homework, coding help, jokes, personal advice, or casual chat. Also \
-use it when the customer keeps chatting about something unrelated after a greeting.
+- none: ONLY a message that is nothing but a greeting, thanks or goodbye ("hi", "salam", \
+"thank you", "shukriya", "bye"). Set `small_talk` to greeting, thanks or goodbye. A message that \
+also asks or says anything else is NOT none.
+- off_topic: everything else that is not about {COMPANY} support, in any language or script \
+(including Roman Urdu/Hindi): food, menus, cooking, recipes, weather, news, sports, maths, general \
+knowledge, homework, coding help, jokes, personal advice, opinions, or casual chat.
+
+When unsure between none and off_topic, choose off_topic. Never answer the customer yourself; you \
+only choose a route.
 
 The conversation is currently with: {{active_agent}}.
 If the message continues that support topic (answers a question, gives an order id, says it still \
@@ -108,6 +112,12 @@ OFF_TOPIC_REPLY = (
     "I can only help with your Nimbus account, orders, billing and the Nimbus app. "
     "Is there anything I can help you with there?"
 )
+
+SMALL_TALK_REPLIES: dict[str, str] = {
+    "greeting": "Hi! How can I help with your Nimbus account, an order, billing or the app?",
+    "thanks": "You're welcome! Is there anything else I can help you with?",
+    "goodbye": "Thanks for contacting Nimbus support. Take care!",
+}
 
 GUARDRAIL_REFUSAL = (
     "I can't help with that. If you have a question about your account, an order or a charge, "

@@ -10,6 +10,7 @@ from support.domain.enums import RefundStatus, TicketStatus
 from support.domain.errors import NotFound
 from support.domain.policies import RefundPolicy, ReturnPolicy
 from support.domain.schemas import AccountOverview, ConversationOut, CustomerOut
+from support.services import audit
 from support.services.billing import BillingService
 from support.services.orders import OrderService
 from support.services.tickets import TicketService
@@ -63,6 +64,26 @@ class ConversationService:
             .limit(limit)
         )
         return [ConversationOut.model_validate(c) for c in rows.all()]
+
+    async def delete(self, conversation_id: uuid.UUID, *, customer_id: str) -> None:
+        """Remove a customer's conversation. Tickets opened from it are kept for staff."""
+        c = await self.s.scalar(
+            select(Conversation).where(
+                Conversation.id == conversation_id, Conversation.customer_id == customer_id
+            )
+        )
+        if c is None:
+            raise NotFound("Conversation not found.")
+        await self.s.delete(c)
+        await audit.record(
+            self.s,
+            actor=f"customer:{customer_id}",
+            action="conversation.deleted",
+            entity_type="conversation",
+            entity_id=str(conversation_id),
+            customer_id=customer_id,
+            data={"title": c.title},
+        )
 
     async def touch(
         self, conversation_id: uuid.UUID, *, active_agent: str | None, first_message: str | None

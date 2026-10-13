@@ -60,9 +60,10 @@ def kinds(state: dict[str, Any]) -> list[str]:
 
 
 async def test_small_talk_answered_by_triage(deps: AgentDeps) -> None:
-    graph, llm, _ = make(deps, [], [{"agent": "none", "reason": "greeting", "reply": "Hi! How can I help?"}])
+    graph, llm, _ = make(deps, [], [{"agent": "none", "reason": "greeting", "small_talk": "greeting"}])
     out = await say(graph, "hello", cfg())
-    assert out["messages"][-1].content == "Hi! How can I help?" and out["messages"][-1].name == "triage"
+    assert out["messages"][-1].content == prompts.SMALL_TALK_REPLIES["greeting"]
+    assert out["messages"][-1].name == "triage"
     assert llm.calls == []
 
 
@@ -186,11 +187,24 @@ async def test_off_topic_message_gets_fixed_redirect_and_keeps_the_agent(deps: A
     assert out["messages"][-1].name == "escalation"
 
 
-async def test_greeting_reply_is_kept_short(deps: AgentDeps) -> None:
-    rambling = "Hello! " + "I love talking about food and the weather. " * 10
-    graph, _, _ = make(deps, [], [{"agent": "none", "reason": "greeting", "reply": rambling}])
-    out = await say(graph, "hi", cfg())
-    assert out["messages"][-1].content.startswith("Hi! How can I help")
+async def test_router_never_writes_customer_facing_text(deps: AgentDeps) -> None:
+    """Second report: '2 + 2 = ?' misfiled as small talk got answered ('2 + 2 = 4').
+    Whatever the router returns, the customer only ever sees fixed text."""
+    graph, llm, _ = make(
+        deps,
+        [],
+        [
+            {"agent": "none", "reason": "maths", "small_talk": None, "reply": "2 + 2 = 4. Anything else?"},
+            {"agent": "none", "reason": "thanks", "small_talk": "thanks"},
+        ],
+    )
+    c = cfg()
+    out = await say(graph, "2 + 2 = ?", c)
+    assert out["messages"][-1].content == prompts.SMALL_TALK_REPLIES["greeting"]
+    out = await say(graph, "shukriya", c)
+    assert out["messages"][-1].content == prompts.SMALL_TALK_REPLIES["thanks"]
+    assert "4" not in " ".join(str(m.content) for m in out["messages"] if m.type == "ai")
+    assert llm.calls == []
 
 
 async def test_sticky_mode_still_available_when_configured(deps: AgentDeps) -> None:

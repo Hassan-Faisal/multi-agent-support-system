@@ -2,7 +2,7 @@
 
     START → guard ─┬─ blocked ──────────────────────────▶ END (refusal)
                    └─ entry → triage ─┬─ off-topic ───────▶ END (fixed redirect)
-                                      ├─ greeting/thanks ─▶ END (one-line reply)
+                                      ├─ greeting/thanks ─▶ END (fixed reply)
                                       ▼
                                <specialist> ⇄ <specialist>_tools
                                       │  transfer_to_* → other specialist
@@ -11,7 +11,7 @@
 - guard: PII redaction + prompt-injection screen on the new customer message.
 - triage: small model, structured output, on every message. It keeps the conversation
   with the active specialist when the topic continues (no visible re-route), switches
-  specialist on a new topic, and answers anything outside Nimbus support with fixed
+  specialist on a new topic, and answers greetings and anything outside Nimbus support with fixed
   text so the conversation can't drift into chit-chat. Set triage_every_turn=False to
   skip it for follow-ups (cheaper, but off-topic follow-ups then reach the specialist).
 - specialists: LLM + tools loop. Handoffs switch agent within the same turn.
@@ -185,9 +185,9 @@ def build_graph(
             return Command(goto=END, update={"messages": [reply], "events": ev})
         if decision.agent == "none":
             ev = emit({"type": "route", "agent": "none", "reason": decision.reason})
-            text = (decision.reply or "").strip()
-            if not text or len(text) > 240:  # a greeting reply must stay one short sentence
-                text = "Hi! How can I help with your Nimbus account, an order, billing or the app?"
+            # Fixed text again: the router never writes customer-facing prose, so a
+            # misclassified question ("2 + 2?") gets a pleasantry, never an answer.
+            text = prompts.SMALL_TALK_REPLIES[decision.small_talk or "greeting"]
             return Command(goto=END, update={"messages": [AIMessage(text, name="triage")], "events": ev})
         if decision.agent == active:
             return Command(goto=active)  # same topic continues: no visible re-route

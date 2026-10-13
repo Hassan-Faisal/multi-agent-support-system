@@ -141,7 +141,7 @@ async def test_sse_turn_streams_trace_then_message(h: Harness) -> None:
 
 async def test_second_message_while_replying_gets_409(h: Harness) -> None:
     h.triage.delay_s = 0.3
-    h.triage.responses += [{"agent": "none", "reason": "greeting", "reply": "Hi!"}]
+    h.triage.responses += [{"agent": "none", "reason": "greeting", "small_talk": "greeting"}]
     auth = await h.login("ayesha@example.com")
     conv = await new_conversation(h, auth)
     url = f"/api/v1/conversations/{conv}/messages"
@@ -154,13 +154,59 @@ async def test_second_message_while_replying_gets_409(h: Harness) -> None:
 
 async def test_chat_is_rate_limited(h: Harness) -> None:
     h.container.limiter = SlidingWindowLimiter(limit=1)
-    h.triage.responses += [{"agent": "none", "reason": "hi", "reply": "Hi!"}]
+    h.triage.responses += [{"agent": "none", "reason": "hi", "small_talk": "greeting"}]
     auth = await h.login("ayesha@example.com")
     conv = await new_conversation(h, auth)
     url = f"/api/v1/conversations/{conv}/messages"
     assert (await h.client.post(url, headers=auth, json={"content": "hi"})).status_code == 200
     limited = await h.client.post(url, headers=auth, json={"content": "hi"})
     assert limited.status_code == 429 and int(limited.headers["retry-after"]) >= 1
+
+
+async def test_delete_conversation_removes_history_but_keeps_tickets(h: Harness) -> None:
+    h.triage.responses += [{"agent": "escalation", "reason": "wants a human"}]
+    h.llm.responses += [
+        tool_call("create_support_ticket", {"category": "other", "priority": "normal", "summary": "Call me"}),
+        "Ticket opened.",
+    ]
+    auth = await h.login("ayesha@example.com")
+    keep, conv = await new_conversation(h, auth), await new_conversation(h, auth)
+    await h.client.post(f"/api/v1/conversations/{conv}/messages", headers=auth, json={"content": "human pls"})
+
+    other = await h.login("marcus@example.com")
+    assert (await h.client.delete(f"/api/v1/conversations/{conv}", headers=other)).status_code == 404
+
+    r = await h.client.delete(f"/api/v1/conversations/{conv}", headers=auth)
+    assert r.status_code == 204
+    ids = [c["id"] for c in (await h.client.get("/api/v1/conversations", headers=auth)).json()]
+    assert ids == [keep]
+    assert (await h.client.get(f"/api/v1/conversations/{conv}/messages", headers=auth)).status_code == 404
+    snap = await h.container.graph.aget_state({"configurable": {"thread_id": conv}})
+    assert not snap.values  # checkpointed messages are gone too
+    assert (await h.client.delete(f"/api/v1/conversations/{conv}", headers=auth)).status_code == 404
+
+    staff = await h.login("agent@nimbus.example")
+    tickets = (await h.client.get("/api/v1/admin/tickets", headers=staff)).json()
+    assert any(t["summary"] == "Call me" for t in tickets)  # staff work isn't lost
+    actions = [e["action"] for e in (await h.client.get("/api/v1/admin/audit", headers=staff)).json()]
+    assert actions[0] == "conversation.deleted"
+
+
+async def test_cannot_delete_while_a_reply_is_being_written(h: Harness) -> None:
+    h.triage.delay_s = 0.3
+    h.triage.responses += [{"agent": "none", "reason": "greeting", "small_talk": "greeting"}]
+    auth = await h.login("ayesha@example.com")
+    conv = await new_conversation(h, auth)
+
+    async def delete_soon() -> httpx.Response:
+        await asyncio.sleep(0.05)
+        return await h.client.delete(f"/api/v1/conversations/{conv}", headers=auth)
+
+    sent, deleted = await asyncio.gather(
+        h.client.post(f"/api/v1/conversations/{conv}/messages", headers=auth, json={"content": "hi"}),
+        delete_soon(),
+    )
+    assert sent.status_code == 200 and deleted.status_code == 409
 
 
 # ------------------------------------------------------------------ human-in-the-loop

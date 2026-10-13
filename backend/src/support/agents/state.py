@@ -34,11 +34,11 @@ class RouteDecision(BaseModel):
 
     agent: Literal["billing", "technical", "orders", "escalation", "none", "off_topic"] = Field(
         description=(
-            "Specialist to route to; 'none' for a bare greeting or thanks; 'off_topic' for anything "
-            "unrelated to Nimbus support."
+            "Specialist to route to; 'none' only for a bare greeting, thanks or goodbye; "
+            "'off_topic' for anything else unrelated to Nimbus support."
         )
     )
     reason: str = Field(description="One short sentence explaining the choice.")
-    reply: str | None = Field(
-        default=None, description="One short sentence, only when agent is 'none'; otherwise null."
+    small_talk: Literal["greeting", "thanks", "goodbye"] | None = Field(
+        default=None, description="Only when agent is 'none': which kind of pleasantry it is; otherwise null."
     )

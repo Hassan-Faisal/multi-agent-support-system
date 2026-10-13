@@ -391,6 +391,98 @@ select:focus {
   font-size: var(--t-xs);
   color: var(--ink-3);
 }
+.convo-row {
+  position: relative;
+}
+.convo-row .convo {
+  padding-right: 2.2rem;
+}
+.convo-more {
+  position: absolute;
+  top: 50%;
+  right: 0.3rem;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--ink-3);
+  fill: currentColor;
+  cursor: pointer;
+  opacity: 0;
+}
+.convo-row:hover .convo-more,
+.convo-row:focus-within .convo-more,
+.convo-row[data-menu="open"] .convo-more,
+.convo-row[data-menu="confirm"] .convo-more,
+.convo-row:has(.convo[aria-current="page"]) .convo-more {
+  opacity: 1;
+}
+@media (hover: none) {
+  .convo-more {
+    opacity: 1;
+  }
+}
+.convo-more:hover,
+.convo-more[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--rule);
+}
+.convo-more:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.convo-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% - 0.2rem);
+  right: 0.3rem;
+  min-width: 11rem;
+  max-width: calc(100% - 0.3rem);
+  padding: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-m);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+}
+.convo-menu-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-s);
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+.convo-menu-item:hover,
+.convo-menu-item:focus-visible {
+  background: var(--paper);
+}
+.convo-menu-item.danger {
+  color: var(--danger);
+}
+.convo-confirm {
+  margin: 0.3rem 0.4rem 0.5rem;
+  font-size: var(--t-sm);
+}
+.convo-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+.btn-danger {
+  background: var(--danger);
+  color: var(--surface);
+}
+.btn-danger:hover {
+  filter: brightness(1.08);
+}
 
 .thread-col {
   grid-area: thread;

@@ -15,13 +15,14 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
 import structlog
 from langchain_core.messages import AIMessage, AIMessageChunk, AnyMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from support.agents.graph import text_of
 from support.agents.state import AGENTS
@@ -75,6 +76,23 @@ class ChatRunner:
         snap = await self.c.graph.aget_state({"configurable": {"thread_id": str(conversation_id)}})
         msgs = (snap.values or {}).get("messages", [])
         return [t for m in msgs if (t := to_transcript(m))]
+
+    async def delete(
+        self, conversation_id: uuid.UUID, remove_metadata: Callable[[], Awaitable[None]]
+    ) -> None:
+        """Delete a conversation's metadata, then its message history in the checkpointer.
+        Refused while a reply is being written, and the conversation is held busy meanwhile
+        so a new turn can't start halfway through."""
+        if conversation_id in self._busy:
+            raise Conflict("Wait for the current reply to finish before deleting this conversation.")
+        self._busy.add(conversation_id)
+        try:
+            await remove_metadata()
+            checkpointer = self.c.graph.checkpointer
+            if isinstance(checkpointer, BaseCheckpointSaver):
+                await checkpointer.adelete_thread(str(conversation_id))
+        finally:
+            self._busy.discard(conversation_id)
 
     def start_turn(self, conversation_id: uuid.UUID, customer_id: str, text: str) -> AsyncIterator[ChatEvent]:
         """Start the turn now (raising Conflict before any response is sent if one is

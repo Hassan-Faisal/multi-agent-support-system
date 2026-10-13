@@ -178,3 +178,17 @@
   expect:
     route: off_topic
     reply_none: ["def ", "[::-1]"]
+
+# Reported: these were misfiled as small talk and the router answered them itself.
+- id: off-topic-maths-question
+  customer: C002
+  turns: ["2 + 2 = ?"]
+  expect:
+    reply_none: ["= 4", "is 4", "4."]
+
+- id: off-topic-cooking-roman-urdu
+  customer: C002
+  turns: ["biryani mai masala add kro ke nahi?"]
+  expect:
+    reply_none: ["masala zaroor", "haan", "add karein"]
+    reply_any: ["Nimbus"]

@@ -5,9 +5,9 @@ import type { AccountOverview, Conversation } from "../api/types";
 import { useAuth } from "../auth";
 import { AccountPanel } from "../components/AccountPanel";
 import { Composer } from "../components/Composer";
+import { ConversationItem } from "../components/ConversationItem";
 import { DraftView, MessageView } from "../components/Message";
 import { Switchboard } from "../components/Switchboard";
-import { fmtAgo } from "../format";
 import { useChat } from "../useChat";
 
 const SUGGESTIONS: Record<string, string[]> = {
@@ -66,6 +66,19 @@ export function ChatPage() {
     setDrawer("none");
   };
 
+  const deleteConversation = async (id: string) => {
+    await api.deleteConversation(id);
+    const rest = conversations.filter((c) => c.id !== id);
+    if (id !== activeId) {
+      setConversations(rest);
+      return;
+    }
+    // Deleted the open chat: move to the next one, or start a fresh one if none are left.
+    const next = rest[0] ?? (await api.createConversation());
+    setConversations(rest.length ? rest : [next]);
+    setActiveId(next.id);
+  };
+
   const path = chat.pending ? pathOf(chat.pending.trace, chat.activeAgent) : pathOf(chat.lastTrace, chat.activeAgent);
   const suggestions = SUGGESTIONS[user?.customer_id ?? ""] ?? GENERIC;
 
@@ -96,20 +109,17 @@ export function ChatPage() {
         </button>
         <ul>
           {conversations.map((c) => (
-            <li key={c.id}>
-              <button
-                className="convo"
-                aria-current={c.id === activeId ? "page" : undefined}
-                disabled={busy}
-                onClick={() => {
-                  setActiveId(c.id);
-                  setDrawer("none");
-                }}
-              >
-                <span className="convo-title">{c.title}</span>
-                <span className="convo-meta">{fmtAgo(c.updated_at)}</span>
-              </button>
-            </li>
+            <ConversationItem
+              key={c.id}
+              conversation={c}
+              current={c.id === activeId}
+              disabled={busy}
+              onOpen={() => {
+                setActiveId(c.id);
+                setDrawer("none");
+              }}
+              onDelete={() => deleteConversation(c.id)}
+            />
           ))}
         </ul>
       </nav>

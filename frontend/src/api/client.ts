@@ -88,6 +88,7 @@ export const api = {
   account: () => request<AccountOverview>("/me/account"),
   conversations: () => request<Conversation[]>("/conversations"),
   createConversation: () => post<Conversation>("/conversations"),
+  deleteConversation: (id: string) => request<void>(`/conversations/${id}`, { method: "DELETE" }),
   transcript: (id: string) => request<TranscriptMessage[]>(`/conversations/${id}/messages`),
 
   /** Streams one turn. Yields typed events until the server sends `done`. */

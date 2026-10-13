@@ -40,6 +40,21 @@ async def list_conversations(p: CustomerDep, session: SessionDep) -> list[Conver
     return await ConversationService(session).list(p.customer_id)
 
 
+@router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: uuid.UUID, p: CustomerDep, c: ContainerDep, chat: ChatRunner = Depends(runner)
+) -> None:
+    """Delete one of the customer's conversations and its message history (409 while replying)."""
+    assert p.customer_id
+    customer_id = p.customer_id
+
+    async def remove_metadata() -> None:
+        async with unit_of_work(c.sessions) as session:
+            await ConversationService(session).delete(conversation_id, customer_id=customer_id)
+
+    await chat.delete(conversation_id, remove_metadata)
+
+
 @router.get("/conversations/{conversation_id}/messages", response_model=list[TranscriptMessage])
 async def get_messages(
     conversation_id: uuid.UUID, p: PrincipalDep, session: SessionDep, chat: ChatRunner = Depends(runner)
