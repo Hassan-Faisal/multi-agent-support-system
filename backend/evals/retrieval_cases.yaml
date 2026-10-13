@@ -1,0 +1,46 @@
+# Labelled queries for retrieval evaluation: question -> article(s) that answer it.
+# Phrased the way customers write, deliberately avoiding article titles where possible.
+- query: I forgot my password and the reset email never showed up
+  expected: [reset-password]
+- query: it says too many attempts try again later
+  expected: [account-locked]
+- query: got a new phone and my authenticator codes are gone
+  expected: [two-factor-authentication]
+- query: the app closes immediately every time I open it
+  expected: [app-crashes]
+- query: edits on my laptop don't show up on my tablet
+  expected: [sync-issues]
+- query: why am I getting 403 from the API
+  expected: [api-errors]
+- query: my API key returns 401 unauthorized
+  expected: [api-errors]
+- query: what does 429 too many requests mean and how long should I wait
+  expected: [api-rate-limits]
+- query: how much does the Pro plan cost and does it include API access
+  expected: [plans-and-pricing]
+- query: if I downgrade do I lose features right away
+  expected: [plans-and-pricing]
+- query: how long until my refund reaches my card
+  expected: [refund-policy]
+- query: can I get my money back for a charge from two months ago
+  expected: [refund-policy]
+- query: my card was declined and the invoice is overdue
+  expected: [failed-payments]
+- query: will my account be shut off if I don't pay
+  expected: [failed-payments]
+- query: my package is late and tracking hasn't updated
+  expected: [shipping-and-delivery]
+- query: tracking says delivered but nothing arrived
+  expected: [shipping-and-delivery]
+- query: I want to send back the keyboard I bought
+  expected: [returns-and-exchanges]
+- query: can I return something I bought two months ago
+  expected: [returns-and-exchanges, warranty]
+- query: the desk motor stopped working after a year
+  expected: [warranty]
+- query: how do I download all my data and close my account
+  expected: [data-privacy]
+- query: third device stopped syncing on the basic plan
+  expected: [sync-issues]
+- query: 2FA codes keep getting rejected
+  expected: [two-factor-authentication]
