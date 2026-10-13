@@ -64,7 +64,7 @@ class BillingService:
                 category=TicketCategory.BILLING,
                 priority=TicketPriority.HIGH,
                 summary=(
-                    f"Refund approval needed: {decision.amount} on {inv.id} ({inv.description}). "
+                    f"Refund approval needed: ${decision.amount} on {inv.id} ({inv.description}). "
                     f"Customer reason: {reason}"
                 ),
                 actor=actor,

@@ -36,7 +36,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         c = container or await build_container(settings)
         _install(app, c)
         log.info(
-            "app.started", env=settings.env, model=settings.llm_model, embeddings=settings.embedding_model
+            "app.started", env=settings.env, model=settings.llm_model, embeddings=settings.embedding_provider
         )
         yield
         await app.state.chat_runner.drain()
